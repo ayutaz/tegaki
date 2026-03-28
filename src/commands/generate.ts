@@ -118,15 +118,19 @@ export const generateCommand = (c: any) =>
 
         const skeletonFontUnits = polylines.map((pl) => transformPointsToFontUnits(pl, raster.transform));
 
+        const scale = raster.transform.scaleX;
         const strokesFontUnits = strokes.map((s) => ({
           ...s,
+          length: Math.round((s.length / scale) * 100) / 100,
           points: s.points.map((p) => ({
             x: Math.round((p.x / raster.transform.scaleX + raster.transform.offsetX) * 100) / 100,
             y: Math.round((p.y / raster.transform.scaleY + raster.transform.offsetY) * 100) / 100,
             t: Math.round(p.t * 1000) / 1000,
-            width: Math.round((p.width / raster.transform.scaleX) * 100) / 100,
+            width: Math.round((p.width / scale) * 100) / 100,
           })),
         }));
+
+        const totalLength = strokesFontUnits.reduce((sum, s) => sum + s.length, 0);
 
         output.glyphs[char] = {
           char: rawGlyph.char,
@@ -136,6 +140,7 @@ export const generateCommand = (c: any) =>
           path: rawGlyph.pathString,
           skeleton: skeletonFontUnits,
           strokes: strokesFontUnits,
+          totalLength: Math.round(totalLength * 100) / 100,
         };
 
         processed++;

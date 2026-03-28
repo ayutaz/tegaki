@@ -156,7 +156,7 @@ export function orderStrokes(polylines: Point[][], inverseDT: Float32Array | nul
         return { x: p.x, y: p.y, t, width };
       });
 
-      strokes.push({ points, order: order++ });
+      strokes.push({ points, order: order++, length: totalLen });
     }
   }
 

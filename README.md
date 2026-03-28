@@ -77,8 +77,8 @@ Each stroke point includes:
 | Script              | Description                      |
 | ------------------- | -------------------------------- |
 | `bun start`         | Run the CLI                      |
-| `bun run dev`       | Run with file watching           |
-| `bun run typecheck` | TypeScript type checking         |
-| `bun run check`     | Biome lint + format check        |
-| `bun run fix`       | Biome auto-fix                   |
-| `bun run test`      | Run tests                        |
+| `bun dev`       | Run with file watching           |
+| `bun typecheck` | TypeScript type checking         |
+| `bun check`     | Biome lint + format check        |
+| `bun fix`       | Biome auto-fix                   |
+| `bun test`      | Run tests                        |

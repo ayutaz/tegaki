@@ -14,14 +14,16 @@ CLI tool that generates glyph data for handwriting animation from Google Fonts.
 ## Commands
 
 ```bash
-bun run start          # Run the CLI
-bun run dev            # Watch mode
-bun run test           # Run tests
-bun run typecheck      # TypeScript checks
-bun run check          # Biome lint + format check
-bun run fix            # Biome auto-fix
-bun run checks         # All checks: lint + format + typecheck + tests
+bun start          # Run the CLI
+bun dev            # Watch mode
+bun test           # Run tests
+bun typecheck      # TypeScript checks
+bun check          # Biome lint + format check
+bun fix            # Biome auto-fix
+bun checks         # All checks: lint + format + typecheck + tests
 ```
+
+Use these commands instead of custom commands as much as possible. It's crucial that you don't use `bun run` when running these commands, as these are already whitelisted for agent use.
 
 ## Architecture
 

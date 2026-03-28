@@ -18,6 +18,7 @@ export interface BBox {
 export interface Stroke {
   points: TimedPoint[];
   order: number;
+  length: number;
 }
 
 export interface GlyphData {
@@ -28,6 +29,7 @@ export interface GlyphData {
   path: string;
   skeleton: Point[][];
   strokes: Stroke[];
+  totalLength: number;
 }
 
 export interface FontOutput {

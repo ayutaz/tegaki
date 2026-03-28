@@ -32,7 +32,13 @@ function traceChain(startX: number, startY: number, skeleton: Uint8Array, visite
     const neighbors = getNeighbors(cx, cy, skeleton, width, height);
     const unvisited = neighbors.filter((n) => !visited[n.y * width + n.x]);
 
-    if (unvisited.length === 0) break;
+    if (unvisited.length === 0) {
+      // No unvisited neighbors -- but if there's an already-visited junction nearby,
+      // append it so this chain connects to the chain that passed through the junction.
+      const visitedJunction = neighbors.find((n) => visited[n.y * width + n.x] && degree(n.x, n.y, skeleton, width, height) >= 3);
+      if (visitedJunction) chain.push(visitedJunction);
+      break;
+    }
 
     // Prefer chain pixels (degree 2) over junctions
     const next = unvisited.find((n) => degree(n.x, n.y, skeleton, width, height) <= 2) ?? unvisited[0]!;
@@ -93,6 +99,64 @@ export function rdpSimplify(points: Point[], tolerance = RDP_TOLERANCE): Point[]
   return [first, last];
 }
 
+function dist(a: Point, b: Point): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Merge polylines whose endpoints are within `threshold` distance into longer chains.
+ * This reconnects fragments split at junction points by the tracing algorithm.
+ */
+function mergePolylines(polylines: Point[][], threshold: number): Point[][] {
+  if (polylines.length <= 1) return polylines;
+
+  const used = new Uint8Array(polylines.length);
+  const merged: Point[][] = [];
+
+  for (let i = 0; i < polylines.length; i++) {
+    if (used[i]) continue;
+    used[i] = 1;
+
+    let chain = [...polylines[i]!];
+    let changed = true;
+
+    while (changed) {
+      changed = false;
+      for (let j = 0; j < polylines.length; j++) {
+        if (used[j]) continue;
+        const other = polylines[j]!;
+
+        const chainStart = chain[0]!;
+        const chainEnd = chain[chain.length - 1]!;
+        const otherStart = other[0]!;
+        const otherEnd = other[other.length - 1]!;
+
+        // Try all 4 orientations of joining
+        if (dist(chainEnd, otherStart) < threshold) {
+          chain = [...chain, ...other.slice(1)];
+        } else if (dist(chainEnd, otherEnd) < threshold) {
+          chain = [...chain, ...[...other].reverse().slice(1)];
+        } else if (dist(chainStart, otherEnd) < threshold) {
+          chain = [...other, ...chain.slice(1)];
+        } else if (dist(chainStart, otherStart) < threshold) {
+          chain = [...[...other].reverse(), ...chain.slice(1)];
+        } else {
+          continue;
+        }
+
+        used[j] = 1;
+        changed = true;
+      }
+    }
+
+    merged.push(chain);
+  }
+
+  return merged;
+}
+
 function pathLength(points: Point[]): number {
   let len = 0;
   for (let i = 1; i < points.length; i++) {
@@ -133,14 +197,18 @@ export function traceAndSimplify(
     }
   }
 
+  // Merge chains whose endpoints are close (reconnects fragments split at junctions)
+  const mergeThreshold = Math.max(width, height) * 0.08;
+  const mergedPolylines = mergePolylines(polylines, mergeThreshold);
+
   // Compute spur length threshold: proportional to bitmap size, but capped so tiny glyphs aren't fully erased
   const effectiveSpurMin = spurMinLength ?? Math.min(Math.round(Math.max(width, height) * SPUR_LENGTH_RATIO), 10);
 
   // Prune short spurs, but never prune everything
-  let pruned = polylines.filter((p) => pathLength(p) >= effectiveSpurMin);
-  if (pruned.length === 0 && polylines.length > 0) {
+  let pruned = mergedPolylines.filter((p) => pathLength(p) >= effectiveSpurMin);
+  if (pruned.length === 0 && mergedPolylines.length > 0) {
     // Keep the longest polyline if all would be pruned
-    pruned = [polylines.reduce((a, b) => (pathLength(a) >= pathLength(b) ? a : b))];
+    pruned = [mergedPolylines.reduce((a, b) => (pathLength(a) >= pathLength(b) ? a : b))];
   }
 
   // Simplify with RDP

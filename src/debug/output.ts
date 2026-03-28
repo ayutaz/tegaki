@@ -32,9 +32,13 @@ ${paths}
 }
 
 function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, title: string): string {
-  const totalDuration = 2; // seconds for full animation
-  const pauseBetween = 0.3; // pause between strokes
-  const paths: string[] = [];
+  const drawingDuration = 2; // total seconds spent drawing (excluding pauses)
+  const pauseBetween = 0.15; // seconds pause between strokes
+
+  // Compute total length across all strokes for proportional timing
+  const totalLength = strokes.reduce((sum, s) => sum + s.length, 0);
+
+  const elements: string[] = [];
   let timeOffset = 0;
 
   for (let i = 0; i < strokes.length; i++) {
@@ -42,7 +46,7 @@ function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, t
     const color = STROKE_COLORS[i % STROKE_COLORS.length];
     const d = stroke.points.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
 
-    // Compute path length for dash animation
+    // Compute SVG path length for dash animation
     let len = 0;
     for (let j = 1; j < stroke.points.length; j++) {
       const dx = stroke.points[j]!.x - stroke.points[j - 1]!.x;
@@ -51,36 +55,34 @@ function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, t
     }
 
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
-    const strokeDuration = totalDuration / strokes.length;
-    const begin = `${timeOffset.toFixed(2)}s`;
+    const strokeDuration = totalLength > 0 ? Math.max((stroke.length / totalLength) * drawingDuration, 0.05) : 0.1;
+    const begin = `${timeOffset.toFixed(3)}s`;
 
-    paths.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
-    stroke-dasharray="${len.toFixed(0)}" stroke-dashoffset="${len.toFixed(0)}">
-    <animate attributeName="stroke-dashoffset" from="${len.toFixed(0)}" to="0" dur="${strokeDuration.toFixed(2)}s" begin="${begin}" fill="freeze"/>
+    // Stroke path: starts hidden, becomes visible and animates when its turn begins
+    // opacity:0 is needed because round linecaps bleed past the dashoffset on thick strokes
+    elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
+    stroke-dasharray="${len.toFixed(0)}" stroke-dashoffset="${len.toFixed(0)}" opacity="0">
+    <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
+    <animate attributeName="stroke-dashoffset" from="${len.toFixed(0)}" to="0" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
   </path>`);
 
-    timeOffset += strokeDuration + pauseBetween;
-  }
+    // Label: starts invisible, fades in when stroke begins
+    if (stroke.points.length > 0) {
+      const start = stroke.points[0]!;
+      elements.push(`  <g opacity="0">
+    <circle cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="4" fill="${color}" opacity="0.7"/>
+    <text x="${(start.x + 5).toFixed(1)}" y="${(start.y - 5).toFixed(1)}" font-size="8" fill="${color}" font-family="sans-serif">${i + 1}</text>
+    <animate attributeName="opacity" from="0" to="1" dur="0.1s" begin="${begin}" fill="freeze"/>
+  </g>`);
+    }
 
-  // Add stroke order labels
-  const labels: string[] = [];
-  for (let i = 0; i < strokes.length; i++) {
-    const stroke = strokes[i]!;
-    if (stroke.points.length === 0) continue;
-    const start = stroke.points[0]!;
-    labels.push(
-      `  <circle cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="4" fill="${STROKE_COLORS[i % STROKE_COLORS.length]}" opacity="0.7"/>`,
-    );
-    labels.push(
-      `  <text x="${(start.x + 5).toFixed(1)}" y="${(start.y - 5).toFixed(1)}" font-size="8" fill="${STROKE_COLORS[i % STROKE_COLORS.length]}" font-family="sans-serif">${i + 1}</text>`,
-    );
+    timeOffset += strokeDuration + pauseBetween;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width * 2}" height="${height * 2}">
   <title>${title}</title>
   <rect width="${width}" height="${height}" fill="white"/>
-${paths.join('\n')}
-${labels.join('\n')}
+${elements.join('\n')}
 </svg>`;
 }
 
