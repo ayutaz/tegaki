@@ -853,6 +853,9 @@ function TextPreview({
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
   const [fontReady, setFontReady] = useState(false);
+  const [animSpeed, setAnimSpeed] = useState(1);
+  const [fontSizePx, setFontSizePx] = useState(128);
+  const [showOverlay, setShowOverlay] = useState(false);
 
   // Register font face (stable — only changes when font changes, not on text edits)
   const fontUrl = useMemo(() => {
@@ -951,7 +954,7 @@ function TextPreview({
       }
       const dt = (ts - lastTs) / 1000;
       lastTs = ts;
-      timeRef.current = Math.min(timeRef.current + dt, timeline.totalDuration);
+      timeRef.current = Math.min(timeRef.current + dt * animSpeed, timeline.totalDuration);
       setDisplayTime(timeRef.current);
       if (timeRef.current >= timeline.totalDuration) {
         setPlaying(false);
@@ -961,7 +964,7 @@ function TextPreview({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, timeline.totalDuration]);
+  }, [playing, timeline.totalDuration, animSpeed]);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -977,16 +980,23 @@ function TextPreview({
       </div>
 
       {/* Rendered text */}
-      <div className="flex-1 flex items-start justify-center p-8 overflow-auto">
+      <div className="flex-1 flex items-start justify-start p-8 overflow-auto">
         {!fontInfo && <p className="text-gray-400">Load a font to get started</p>}
         {fontInfo && !fontReady && <p className="text-gray-500">Loading font...</p>}
         {fontBundle && fontReady && (
-          <TegakiRenderer className="text-5xl w-full max-w-2xl" text={text} time={displayTime} font={fontBundle} />
+          <TegakiRenderer
+            className="w-full max-w-2xl"
+            style={{ fontSize: `${fontSizePx}px` }}
+            text={text}
+            time={displayTime}
+            font={fontBundle}
+            showOverlay={showOverlay}
+          />
         )}
       </div>
 
       {/* Playback controls */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-t border-gray-200 bg-white h-11">
+      <div className="flex items-center gap-3 px-3 py-1.5 border-t border-gray-200 bg-white">
         <button
           type="button"
           className="px-3 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-100"
@@ -1028,6 +1038,41 @@ function TextPreview({
             setPlaying(false);
           }}
         />
+
+        <span className="border-l border-gray-200 h-6" />
+
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Speed
+          <input
+            type="range"
+            className="w-20"
+            min={0.1}
+            max={5}
+            step={0.1}
+            value={animSpeed}
+            onChange={(e) => setAnimSpeed(Number(e.target.value))}
+          />
+          <span className="tabular-nums text-gray-400 w-8">{animSpeed}x</span>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Size
+          <input
+            type="range"
+            className="w-20"
+            min={16}
+            max={256}
+            step={1}
+            value={fontSizePx}
+            onChange={(e) => setFontSizePx(Number(e.target.value))}
+          />
+          <span className="tabular-nums text-gray-400 w-10">{fontSizePx}px</span>
+        </label>
+
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={showOverlay} onChange={(e) => setShowOverlay(e.target.checked)} />
+          Overlay
+        </label>
       </div>
     </div>
   );

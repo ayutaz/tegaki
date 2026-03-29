@@ -128,7 +128,13 @@ function computeTextLayout(text: string, fontFamily: string, fontSize: number, m
   return { lines, charWidths, kernings, intrinsicWidth };
 }
 
-export function TegakiRenderer({ text, time, font, ...props }: { text: string; time: number; font: TegakiBundle } & ComponentProps<'div'>) {
+export function TegakiRenderer({
+  text,
+  time,
+  font,
+  showOverlay,
+  ...props
+}: { text: string; time: number; font: TegakiBundle; showOverlay?: boolean } & ComponentProps<'div'>) {
   const fontFamily = font.family;
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -150,6 +156,14 @@ export function TegakiRenderer({ text, time, font, ...props }: { text: string; t
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Sync fontSize when CSS changes (className/style) without triggering a resize
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const fs = Number.parseFloat(getComputedStyle(el).fontSize);
+    if (fs !== fontSize) setFontSize(fs);
+  });
 
   // Compute text layout with pretext
   const layout = useMemo(() => {
@@ -195,6 +209,8 @@ export function TegakiRenderer({ text, time, font, ...props }: { text: string; t
             if (node) {
               node.pauseAnimations();
               svgRefs.current.set(charIdx, node);
+              const localTime = Math.max(0, Math.min(time - entry.offset, entry.duration));
+              node.setCurrentTime(localTime);
             } else {
               svgRefs.current.delete(charIdx);
             }
@@ -241,8 +257,11 @@ export function TegakiRenderer({ text, time, font, ...props }: { text: string; t
       <div className="[grid-area:1/1] absolute inset-0 pointer-events-none">{lineElements}</div>
 
       <div
-        className="[grid-area:1/1] select-auto [-webkit-text-fill-color:transparent] whitespace-pre-wrap wrap-break-word pr-[1px]"
-        style={{ fontFamily }}
+        className={twJoin(
+          '[grid-area:1/1] select-auto whitespace-pre-wrap wrap-break-word pr-[1px]',
+          !showOverlay && '[-webkit-text-fill-color:transparent]',
+        )}
+        style={{ fontFamily, color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined }}
       >
         {text}
       </div>
