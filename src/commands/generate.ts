@@ -22,7 +22,7 @@ import { orderStrokes } from '../processing/stroke-order.ts';
 import { traceAndSimplify } from '../processing/trace.ts';
 import { voronoiMedialAxis } from '../processing/voronoi-medial-axis.ts';
 import { computeInverseDistanceTransform } from '../processing/width.ts';
-import type { BBox, FontOutput, Point } from '../types.ts';
+import type { BBox, FontOutput, LineCap, Point } from '../types.ts';
 
 function computePathBBox(subPaths: Point[][]): BBox {
   let x1 = Infinity;
@@ -76,6 +76,11 @@ export const generateCommand = (c: any) =>
           .default(false)
           .describe('Output intermediate steps (bitmap, skeleton, trace, animation SVGs)')
           .meta({ flags: 'd' }),
+        lineCap: z
+          .enum(['auto', 'round', 'butt', 'square'])
+          .default('auto')
+          .describe('Stroke line cap style (auto infers from font properties)')
+          .meta({ flags: 'l' }),
       }),
       { positional: ['family'] },
     )
@@ -93,7 +98,12 @@ export const generateCommand = (c: any) =>
       progress.update('Parsing font...');
       const parsed = await loadFont(fontPath);
 
-      progress.update({ message: `Processing ${parsed.family} ${parsed.style} (${parsed.unitsPerEm} units/em)`, progress: 0 });
+      const lineCap: LineCap = args.lineCap === 'auto' ? parsed.lineCap : args.lineCap;
+
+      progress.update({
+        message: `Processing ${parsed.family} ${parsed.style} (${parsed.unitsPerEm} units/em, ${lineCap} caps)`,
+        progress: 0,
+      });
 
       const output: FontOutput = {
         font: {
@@ -102,6 +112,7 @@ export const generateCommand = (c: any) =>
           unitsPerEm: parsed.unitsPerEm,
           ascender: parsed.ascender,
           descender: parsed.descender,
+          lineCap,
         },
         glyphs: {},
       };
@@ -141,7 +152,7 @@ export const generateCommand = (c: any) =>
 
         if (debugDir) {
           const debugSkeleton = skeleton ?? new Uint8Array(raster.width * raster.height);
-          await writeDebugOutput(debugDir, char, raster, debugSkeleton, polylines, strokes);
+          await writeDebugOutput(debugDir, char, raster, debugSkeleton, polylines, strokes, lineCap);
         }
 
         const skeletonFontUnits = polylines.map((pl) => transformPointsToFontUnits(pl, raster.transform));
@@ -197,7 +208,7 @@ export const generateCommand = (c: any) =>
       const glyphEntries: { char: string; basename: string; totalAnimationDuration: number }[] = [];
       for (const glyph of Object.values(output.glyphs)) {
         const basename = charToFilename(glyph.char);
-        const svg = glyphToAnimatedSVG(glyph.strokes, glyph.advanceWidth, parsed.ascender, parsed.descender);
+        const svg = glyphToAnimatedSVG(glyph.strokes, glyph.advanceWidth, parsed.ascender, parsed.descender, lineCap);
         await Bun.write(join(svgDir, `${basename}.svg`), svg);
 
         const tsx = await svgrTransform(svg, {
@@ -212,7 +223,7 @@ export const generateCommand = (c: any) =>
       }
 
       // Generate glyphs.ts index module inside the bundle
-      const glyphsTs = generateGlyphsModule(glyphEntries, svgDir, outputDir, bundledFontName, parsed.family);
+      const glyphsTs = generateGlyphsModule(glyphEntries, svgDir, outputDir, bundledFontName, parsed.family, lineCap);
       await Bun.write(glyphsModulePath, glyphsTs);
 
       progress.succeed(`Processed ${processed} glyphs (${skipped} skipped). Output: ${outputDir}`);
@@ -226,6 +237,7 @@ function generateGlyphsModule(
   outputDir: string,
   fontFileName: string,
   fontFamily: string,
+  lineCap: LineCap,
 ): string {
   let relDir = relative(outputDir, svgDir).replaceAll('\\', '/') || '.';
   if (!relDir.startsWith('.')) relDir = `./${relDir}`;
@@ -258,6 +270,7 @@ let registered: Promise<void> | null = null;
 
 const bundle: FontBundle = {
   family: '${fontFamily.replace(/'/g, "\\'")}',
+  lineCap: '${lineCap}',
   fontUrl,
   glyphs: {
 ${mapEntries.join('\n')}

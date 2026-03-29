@@ -1,3 +1,5 @@
+export type LineCap = 'round' | 'butt' | 'square';
+
 export interface Point {
   x: number;
   y: number;
@@ -42,12 +44,14 @@ export interface FontOutput {
     unitsPerEm: number;
     ascender: number;
     descender: number;
+    lineCap: LineCap;
   };
   glyphs: Record<string, GlyphData>;
 }
 
 export interface FontBundle {
   family: string;
+  lineCap: LineCap;
   fontUrl: string;
   glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
   glyphTimings: Record<string, number>;

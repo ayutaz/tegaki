@@ -1,4 +1,4 @@
-import font from '#output/nothing-you-could-do/glyphs.ts';
+import font from '#output/fira-sans/glyphs.ts';
 
 await font.registerFontFace();
 

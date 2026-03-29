@@ -1,5 +1,5 @@
 import opentype from 'opentype.js';
-import type { BBox, PathCommand } from '../types.ts';
+import type { BBox, LineCap, PathCommand } from '../types.ts';
 
 export interface ParsedFont {
   family: string;
@@ -7,6 +7,7 @@ export interface ParsedFont {
   unitsPerEm: number;
   ascender: number;
   descender: number;
+  lineCap: LineCap;
   font: opentype.Font;
 }
 
@@ -19,6 +20,40 @@ export interface RawGlyphData {
   pathString: string;
 }
 
+/**
+ * Infer stroke line cap from font properties.
+ *
+ * Handwritten and script fonts get round caps (pen-like feel).
+ * Geometric, serif, and sans-serif fonts get butt caps (clean edges).
+ *
+ * Detection order:
+ * 1. PANOSE familyKind = 3 (Latin Hand Written) → round
+ * 2. OS/2 sFamilyClass high byte = 10 (Script) → round
+ * 3. PANOSE familyKind = 2 with populated data (Latin Text) → butt
+ * 4. Font name keywords (hand, script, cursive, brush, marker, chalk, crayon) → round
+ * 5. Default → round (handwriting tool bias)
+ */
+export function inferLineCap(font: opentype.Font): LineCap {
+  const os2 = font.tables.os2 as { sFamilyClass?: number; panose?: number[] } | undefined;
+
+  if (os2?.panose) {
+    const familyKind = os2.panose[0] ?? 0;
+    // PANOSE familyKind 3 = Latin Hand Written
+    if (familyKind === 3) return 'round';
+    // PANOSE familyKind 2 = Latin Text — check if data is actually populated (not all zeros)
+    if (familyKind === 2 && os2.panose.some((v, i) => i > 0 && v !== 0)) return 'butt';
+  }
+
+  // OS/2 sFamilyClass: high byte 10 = Script
+  if (os2?.sFamilyClass && os2.sFamilyClass >> 8 === 10) return 'round';
+
+  // Font name heuristic
+  const name = (font.names.fontFamily?.en ?? '').toLowerCase();
+  if (/\b(hand|script|cursive|brush|marker|chalk|crayon|writing|handwrit)/i.test(name)) return 'round';
+
+  return 'round';
+}
+
 export async function loadFont(fontPath: string): Promise<ParsedFont> {
   const buffer = await Bun.file(fontPath).arrayBuffer();
   const font = opentype.parse(buffer);
@@ -29,6 +64,7 @@ export async function loadFont(fontPath: string): Promise<ParsedFont> {
     unitsPerEm: font.unitsPerEm,
     ascender: font.ascender,
     descender: font.descender,
+    lineCap: inferLineCap(font),
     font,
   };
 }

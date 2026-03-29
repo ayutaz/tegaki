@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RasterResult } from '../processing/rasterize.ts';
-import type { Point, Stroke } from '../types.ts';
+import type { LineCap, Point, Stroke } from '../types.ts';
 import { bitmapToPNG } from './png.ts';
 
 const STROKE_COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990'];
@@ -15,12 +15,19 @@ export function charToFilename(char: string): string {
   return `U+${code.toString(16).padStart(4, '0')}`;
 }
 
-function polylinesToSVG(polylines: Point[][], width: number, height: number, title: string, strokeWidth = 1): string {
+function polylinesToSVG(
+  polylines: Point[][],
+  width: number,
+  height: number,
+  title: string,
+  strokeWidth = 1,
+  lineCap: LineCap = 'round',
+): string {
   const paths = polylines
     .map((pl, i) => {
       const color = STROKE_COLORS[i % STROKE_COLORS.length];
       const d = pl.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      return `  <path d="${d}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="${lineCap}" stroke-linejoin="round"/>`;
     })
     .join('\n');
 
@@ -31,7 +38,7 @@ ${paths}
 </svg>`;
 }
 
-function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, title: string): string {
+function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, title: string, lineCap: LineCap = 'round'): string {
   const drawingDuration = 2; // total seconds spent drawing (excluding pauses)
   const pauseBetween = 0.15; // seconds pause between strokes
 
@@ -60,7 +67,7 @@ function strokesAnimationSVG(strokes: Stroke[], width: number, height: number, t
 
     // Stroke path: starts hidden, becomes visible and animates when its turn begins
     // opacity:0 is needed because round linecaps bleed past the dashoffset on thick strokes
-    elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
+    elements.push(`  <path d="${d}" fill="none" stroke="${color}" stroke-width="${Math.max(avgWidth, 1).toFixed(1)}" stroke-linecap="${lineCap}" stroke-linejoin="round"
     stroke-dasharray="${len.toFixed(0)}" stroke-dashoffset="${len.toFixed(0)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
     <animate attributeName="stroke-dashoffset" from="${len.toFixed(0)}" to="0" dur="${strokeDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
@@ -93,6 +100,7 @@ export async function writeDebugOutput(
   skeletonBitmap: Uint8Array,
   polylines: Point[][],
   strokes: Stroke[],
+  lineCap: LineCap = 'round',
 ): Promise<void> {
   const name = charToFilename(char);
   const glyphDir = join(debugDir, name);
@@ -130,10 +138,10 @@ ${Array.from({ length: height }, (_, y) =>
   await Bun.write(join(glyphDir, '3-overlay.svg'), overlaySvg);
 
   // 4. Traced polylines
-  await Bun.write(join(glyphDir, '4-trace.svg'), polylinesToSVG(polylines, width, height, `${char} - traced polylines`, 1.5));
+  await Bun.write(join(glyphDir, '4-trace.svg'), polylinesToSVG(polylines, width, height, `${char} - traced polylines`, 1.5, lineCap));
 
   // 5. Animated strokes
-  await Bun.write(join(glyphDir, '5-animation.svg'), strokesAnimationSVG(strokes, width, height, `${char} - stroke animation`));
+  await Bun.write(join(glyphDir, '5-animation.svg'), strokesAnimationSVG(strokes, width, height, `${char} - stroke animation`, lineCap));
 }
 
 /**
@@ -146,6 +154,7 @@ export function glyphToAnimatedSVG(
   advanceWidth: number,
   ascender: number,
   descender: number,
+  lineCap: LineCap = 'round',
 ): string {
   // Uniform viewBox: baseline at y=0, full em-height, glyph's advanceWidth
   // In the pipeline's coordinate system y is negated (screen coords), so
@@ -170,7 +179,7 @@ export function glyphToAnimatedSVG(
     const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
     const begin = `${stroke.delay.toFixed(3)}s`;
 
-    elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"
+    elements.push(`  <path d="${d}" fill="none" stroke="currentColor" stroke-width="${Math.max(avgWidth, 0.5).toFixed(1)}" stroke-linecap="${lineCap}" stroke-linejoin="round"
     stroke-dasharray="${pathLen.toFixed(1)}" stroke-dashoffset="${pathLen.toFixed(1)}" opacity="0">
     <animate attributeName="opacity" from="0" to="1" dur="0.001s" begin="${begin}" fill="freeze"/>
     <animate attributeName="stroke-dashoffset" from="${pathLen.toFixed(1)}" to="0" dur="${stroke.animationDuration.toFixed(3)}s" begin="${begin}" fill="freeze"/>
