@@ -1,5 +1,13 @@
 import type { LineCap } from '../types.ts';
 
+export function charToFilename(char: string): string {
+  const code = char.codePointAt(0)!;
+  if (/[a-zA-Z0-9]/.test(char)) {
+    return char.charCodeAt(0) >= 65 && char.charCodeAt(0) <= 90 ? `upper_${char}` : char;
+  }
+  return `U+${code.toString(16).padStart(4, '0')}`;
+}
+
 /** Render a single-point dot as a circle (round cap) or rect (butt/square cap). */
 function dotElement(x: string, y: string, size: number, fill: string, lineCap: LineCap): string {
   if (lineCap === 'round') {

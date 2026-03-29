@@ -1,7 +1,9 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-export { glyphToAnimatedSVG } from '../processing/animated-svg.ts';
+import { charToFilename, glyphToAnimatedSVG } from '../processing/animated-svg.ts';
+
+export { charToFilename, glyphToAnimatedSVG };
 
 import type { RasterResult } from '../processing/rasterize.ts';
 import type { LineCap, Point, Stroke } from '../types.ts';
@@ -16,15 +18,6 @@ function dotElement(x: string, y: string, size: number, fill: string, lineCap: L
   }
   const half = size / 2;
   return `<rect x="${(Number(x) - half).toFixed(1)}" y="${(Number(y) - half).toFixed(1)}" width="${size.toFixed(1)}" height="${size.toFixed(1)}" fill="${fill}"`;
-}
-
-export function charToFilename(char: string): string {
-  const code = char.codePointAt(0)!;
-  // Use readable names for alphanumeric, hex code for symbols
-  if (/[a-zA-Z0-9]/.test(char)) {
-    return char.charCodeAt(0) >= 65 && char.charCodeAt(0) <= 90 ? `upper_${char}` : char;
-  }
-  return `U+${code.toString(16).padStart(4, '0')}`;
 }
 
 function polylinesToSVG(

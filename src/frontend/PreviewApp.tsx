@@ -1,7 +1,8 @@
+import { zipSync } from 'fflate';
 import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_CHARS } from '../constants.ts';
-import { glyphToAnimatedSVG } from '../processing/animated-svg.ts';
-import type { FontBundle, LineCap } from '../types.ts';
+import { DEFAULT_CHARS, EXAMPLE_FONTS } from '../constants.ts';
+import { charToFilename, glyphToAnimatedSVG } from '../processing/animated-svg.ts';
+import type { FontBundle, FontOutput, LineCap } from '../types.ts';
 import { computeTimeline, Handwriter } from './HandWriter.tsx';
 import {
   type BrowserSkeletonMethod,
@@ -31,8 +32,6 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: 'animation', label: 'Animation' },
   { key: 'final', label: 'Final' },
 ];
-
-const EXAMPLE_FONTS = ['Caveat', 'Italianno', 'Tangerine', 'Nothing You Could Do', 'Emblema One', 'Fira Sans'];
 
 const SKELETON_METHODS: { value: BrowserSkeletonMethod; label: string }[] = [
   { value: 'zhang-suen', label: 'Zhang-Suen' },
@@ -181,6 +180,97 @@ export function PreviewApp() {
     resultsCache.current.clear();
     setOptions((prev) => ({ ...prev, [key]: value }));
   }, []);
+
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    if (!fontInfo || !fontBuffer) return;
+    setDownloading(true);
+    try {
+      // Process all characters (use setTimeout to keep UI responsive)
+      const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
+      const output: FontOutput = {
+        font: {
+          family: fontInfo.family,
+          style: fontInfo.style,
+          unitsPerEm: fontInfo.unitsPerEm,
+          ascender: fontInfo.ascender,
+          descender: fontInfo.descender,
+          lineCap,
+        },
+        glyphs: {},
+      };
+
+      const optionsKey = JSON.stringify(options);
+      for (const char of chars) {
+        const cacheKey = `${char}:${optionsKey}`;
+        let res = resultsCache.current.get(cacheKey);
+        if (!res) {
+          res = processGlyph(fontInfo, char, options) ?? undefined;
+          if (res) resultsCache.current.set(cacheKey, res);
+        }
+        if (!res) continue;
+
+        const { strokesFontUnits, polylines, transform } = res;
+        const skeletonFontUnits = polylines.map((pl) =>
+          pl.map((p) => ({
+            x: Math.round((p.x / transform.scaleX + transform.offsetX) * 100) / 100,
+            y: Math.round((p.y / transform.scaleY + transform.offsetY) * 100) / 100,
+          })),
+        );
+
+        output.glyphs[char] = {
+          char: res.char,
+          unicode: res.unicode,
+          advanceWidth: res.advanceWidth,
+          boundingBox: res.boundingBox,
+          path: res.pathString,
+          skeleton: skeletonFontUnits,
+          strokes: strokesFontUnits,
+          totalLength: Math.round(strokesFontUnits.reduce((sum, s) => sum + s.length, 0) * 100) / 100,
+          totalAnimationDuration:
+            strokesFontUnits.length > 0
+              ? Math.round(
+                  (strokesFontUnits[strokesFontUnits.length - 1]!.delay +
+                    strokesFontUnits[strokesFontUnits.length - 1]!.animationDuration) *
+                    1000,
+                ) / 1000
+              : 0,
+        };
+      }
+
+      // Build ZIP
+      const encoder = new TextEncoder();
+      const slug = fontInfo.family.toLowerCase().replace(/\s+/g, '-');
+      const files: Record<string, Uint8Array> = {};
+
+      files[`${slug}/font.json`] = encoder.encode(JSON.stringify(output, null, 2));
+      files[`${slug}/${slug}.ttf`] = new Uint8Array(fontBuffer);
+
+      const glyphEntries: { char: string; basename: string; totalAnimationDuration: number }[] = [];
+
+      for (const glyph of Object.values(output.glyphs)) {
+        const basename = charToFilename(glyph.char);
+        const svg = glyphToAnimatedSVG(glyph.strokes, glyph.advanceWidth, fontInfo.ascender, fontInfo.descender, lineCap);
+        files[`${slug}/svg/${basename}.svg`] = encoder.encode(svg);
+        files[`${slug}/svg/${basename}.tsx`] = encoder.encode(svgToTsx(svg));
+        glyphEntries.push({ char: glyph.char, basename, totalAnimationDuration: glyph.totalAnimationDuration });
+      }
+
+      files[`${slug}/glyphs.ts`] = encoder.encode(generateGlyphsModule(glyphEntries, `${slug}.ttf`, fontInfo.family, lineCap));
+
+      const zip = zipSync(files);
+      const blob = new Blob([zip.buffer as ArrayBuffer], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  }, [fontInfo, fontBuffer, chars, options]);
 
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
@@ -432,6 +522,16 @@ export function PreviewApp() {
               </div>
             )}
           </fieldset>
+
+          {/* Download */}
+          <button
+            type="button"
+            className="w-full px-3 py-2 bg-gray-800 text-white rounded text-sm hover:bg-gray-700 disabled:opacity-50 cursor-pointer"
+            disabled={!fontInfo || !fontBuffer || downloading}
+            onClick={handleDownload}
+          >
+            {downloading ? 'Generating...' : 'Download Bundle (.zip)'}
+          </button>
         </div>
       </aside>
 
@@ -1331,6 +1431,89 @@ async function fetchFontFromCDN(family: string): Promise<ArrayBuffer> {
 function fitSize(w: number, h: number, maxSize: number): { width: number; height: number } {
   const scale = Math.min(maxSize / w, maxSize / h);
   return { width: Math.round(w * scale), height: Math.round(h * scale) };
+}
+
+// --- Bundle generation utilities ---
+
+/** SVG attribute name → JSX camelCase name */
+const SVG_ATTR_MAP: Record<string, string> = {
+  'stroke-width': 'strokeWidth',
+  'stroke-linecap': 'strokeLinecap',
+  'stroke-linejoin': 'strokeLinejoin',
+  'stroke-dasharray': 'strokeDasharray',
+  'stroke-dashoffset': 'strokeDashoffset',
+  'fill-rule': 'fillRule',
+  'clip-rule': 'clipRule',
+  'font-size': 'fontSize',
+  'font-family': 'fontFamily',
+};
+
+/** Convert an SVG string (from glyphToAnimatedSVG) to a SVGR-style TSX React component */
+function svgToTsx(svg: string): string {
+  // Convert hyphenated SVG attributes to camelCase JSX
+  let jsx = svg;
+  for (const [attr, jsxAttr] of Object.entries(SVG_ATTR_MAP)) {
+    jsx = jsx.replaceAll(` ${attr}=`, ` ${jsxAttr}=`);
+  }
+  // Inject {...props} into the root <svg> tag
+  jsx = jsx.replace(/<svg\s/, '<svg {...props} ');
+
+  return `import type { SVGProps } from "react";
+const SvgComponent = (props: SVGProps<SVGSVGElement>) => (${jsx});
+export default SvgComponent;
+`;
+}
+
+/** Browser-compatible version of the CLI's generateGlyphsModule */
+function generateGlyphsModule(
+  entries: { char: string; basename: string; totalAnimationDuration: number }[],
+  fontFileName: string,
+  fontFamily: string,
+  lineCap: LineCap,
+): string {
+  const imports: string[] = [];
+  const mapEntries: string[] = [];
+  const timingEntries: string[] = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const { char, basename: base, totalAnimationDuration } = entries[i]!;
+    const varName = `_${i}`;
+    imports.push(`import ${varName} from './svg/${base}.tsx';`);
+
+    const escaped = char === '\\' ? '\\\\' : char === "'" ? "\\'" : char;
+    mapEntries.push(`  '${escaped}': ${varName},`);
+    timingEntries.push(`  '${escaped}': ${totalAnimationDuration},`);
+  }
+
+  return `// Auto-generated by handy-text. Do not edit manually.
+import fontUrl from './${fontFileName}' with { type: 'url' };
+
+${imports.join('\n')}
+
+let registered: Promise<void> | null = null;
+
+const bundle = {
+  family: '${fontFamily.replace(/'/g, "\\'")}',
+  lineCap: '${lineCap}',
+  fontUrl,
+  glyphs: {
+${mapEntries.join('\n')}
+  },
+  glyphTimings: {
+${timingEntries.join('\n')}
+  },
+  registerFontFace() {
+    if (!registered) {
+      registered = new FontFace(bundle.family, \`url(\${fontUrl})\`)
+        .load()
+        .then((loaded) => { document.fonts.add(loaded); });
+    }
+    return registered;
+  },
+};
+
+export default bundle;
+`;
 }
 
 // --- Color utilities ---
