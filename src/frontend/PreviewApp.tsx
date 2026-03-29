@@ -11,7 +11,7 @@ import {
   processGlyph,
 } from '../commands/generate.ts';
 import { DEFAULT_CHARS, EXAMPLE_FONTS } from '../constants.ts';
-import { computeTimeline, Tegaki } from '../lib/TegakiRenderer.tsx';
+import { computeTimeline, TegakiRenderer } from '../lib/TegakiRenderer.tsx';
 import { glyphToAnimatedSVG } from '../processing/animated-svg.ts';
 import { renderStage, STROKE_COLORS, type VisualizationStage } from '../processing/visualize.ts';
 import type { LineCap, TegakiBundle } from '../types.ts';
@@ -964,7 +964,9 @@ function TextPreview({
       <div className="flex-1 flex items-start justify-center p-8 overflow-auto">
         {!fontInfo && <p className="text-gray-400">Load a font to get started</p>}
         {fontInfo && !fontReady && <p className="text-gray-500">Loading font...</p>}
-        {fontBundle && fontReady && <Tegaki className="text-5xl w-full max-w-2xl" text={text} time={displayTime} font={fontBundle} />}
+        {fontBundle && fontReady && (
+          <TegakiRenderer className="text-5xl w-full max-w-2xl" text={text} time={displayTime} font={fontBundle} />
+        )}
       </div>
 
       {/* Playback controls */}

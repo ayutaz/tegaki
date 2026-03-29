@@ -2,7 +2,8 @@
   "workbench.editor.labelFormat": "medium",
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.biome": "explicit"
+    "source.fixAll.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
   },
   "[js][jsx][ts][tsx][typescript][typescriptreact][javascript][javascriptreact][json][jsonc][html][css][scss][markdown][mdx]": {
     "editor.defaultFormatter": "biomejs.biome"

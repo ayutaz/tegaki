@@ -1,10 +1,12 @@
 import { serve } from 'bun';
-import previewPage from '../public/preview.html';
+import chatPage from './frontend/chat.html';
+import previewPage from './frontend/preview.html';
 
 export function serveTegakiWeb() {
   const server = serve({
     routes: {
       '/': previewPage,
+      '/chat': chatPage,
     },
     development: {
       hmr: true,
