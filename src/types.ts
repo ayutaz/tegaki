@@ -63,6 +63,9 @@ export interface TegakiBundle {
   family: string;
   lineCap: LineCap;
   fontUrl: string;
+  unitsPerEm: number;
+  ascender: number;
+  descender: number;
   glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
   glyphTimings: Record<string, number>;
   registerFontFace: () => Promise<void>;

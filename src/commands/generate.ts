@@ -430,7 +430,18 @@ export function extractTegakiBundle(input: ExtractBundleInput): TegakiBundleOutp
     glyphEntries.push({ char: glyph.char, basename: base, totalAnimationDuration: glyph.totalAnimationDuration });
   }
 
-  files.push({ path: 'glyphs.ts', content: generateGlyphsModule(glyphEntries, fontFileName, fontInfo.family, lineCap) });
+  files.push({
+    path: 'glyphs.ts',
+    content: generateGlyphsModule(
+      glyphEntries,
+      fontFileName,
+      fontInfo.family,
+      lineCap,
+      fontInfo.unitsPerEm,
+      fontInfo.ascender,
+      fontInfo.descender,
+    ),
+  });
 
   return { fontOutput: output, glyphResults, files, stats: { processed, skipped } };
 }
@@ -440,6 +451,9 @@ function generateGlyphsModule(
   fontFileName: string,
   fontFamily: string,
   lineCap: LineCap,
+  unitsPerEm: number,
+  ascender: number,
+  descender: number,
 ): string {
   const imports: string[] = [];
   const mapEntries: string[] = [];
@@ -466,6 +480,9 @@ const bundle = {
   family: '${fontFamily.replace(/'/g, "\\'")}',
   lineCap: '${lineCap}',
   fontUrl,
+  unitsPerEm: ${unitsPerEm},
+  ascender: ${ascender},
+  descender: ${descender},
   glyphs: {
 ${mapEntries.join('\n')}
   },

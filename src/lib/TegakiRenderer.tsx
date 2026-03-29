@@ -136,6 +136,8 @@ export function TegakiRenderer({
   ...props
 }: { text: string; time: number; font: TegakiBundle; showOverlay?: boolean } & ComponentProps<'div'>) {
   const fontFamily = font.family;
+  const emHeight = (font.ascender - font.descender) / font.unitsPerEm;
+  const baselineOffset = font.descender / font.unitsPerEm;
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [fontSize, setFontSize] = useState(0);
@@ -215,7 +217,12 @@ export function TegakiRenderer({
               svgRefs.current.delete(charIdx);
             }
           }}
-          style={{ height: '1lh', overflow: 'visible', marginInline: '-100%' }}
+          style={{
+            display: 'block',
+            width: '100%',
+            height: `${emHeight}em`,
+            overflow: 'visible',
+          }}
         />
       );
     } else {
@@ -224,7 +231,7 @@ export function TegakiRenderer({
     }
 
     return (
-      <span className="inline-flex items-baseline justify-center" style={style} key={charIdx}>
+      <span style={{ display: 'inline-block', verticalAlign: `${baselineOffset}em`, ...style }} key={charIdx}>
         {content}
       </span>
     );
@@ -234,13 +241,13 @@ export function TegakiRenderer({
     ? layout.lines.map((lineIndices, lineIdx) => {
         const isEmpty = lineIndices.every((i) => characters[i] === '\n');
         return (
-          <div className="flex flex-row" style={isEmpty ? { height: '1lh' } : undefined} key={lineIdx}>
+          <div style={{ whiteSpace: 'nowrap', height: isEmpty ? '1lh' : undefined }} key={lineIdx}>
             {lineIndices.map(renderGlyph)}
           </div>
         );
       })
     : // Fallback before layout is ready: single line
-      characters.length > 0 && <div className="flex flex-row">{characters.map((_, i) => renderGlyph(i))}</div>;
+      characters.length > 0 && <div style={{ whiteSpace: 'nowrap' }}>{characters.map((_, i) => renderGlyph(i))}</div>;
 
   return (
     <div
@@ -254,7 +261,9 @@ export function TegakiRenderer({
         height: 'auto',
       }}
     >
-      <div className="[grid-area:1/1] absolute inset-0 pointer-events-none">{lineElements}</div>
+      <div className="[grid-area:1/1] absolute inset-0 pointer-events-none" style={{ fontFamily }}>
+        {lineElements}
+      </div>
 
       <div
         className={twJoin(
