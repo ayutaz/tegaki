@@ -1,5 +1,6 @@
 import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_CHARS } from '../constants.ts';
+import { glyphToAnimatedSVG } from '../processing/animated-svg.ts';
 import type { FontBundle, LineCap } from '../types.ts';
 import { computeTimeline, Handwriter } from './HandWriter.tsx';
 import {
@@ -1006,83 +1007,21 @@ function AnimationControls({
 
 // --- Text preview ---
 
-/** Create a React SVG component from a PipelineResult, matching the production SVGR output format */
-function createGlyphComponent(result: PipelineResult) {
-  const { strokesFontUnits, lineCap, ascender, descender, advanceWidth } = result;
-  const vx = 0;
-  const vy = -ascender;
-  const vw = advanceWidth;
-  const vh = ascender - descender;
-
-  return forwardRef<SVGSVGElement, SVGProps<SVGSVGElement>>((props, ref) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox={`${vx} ${vy} ${vw} ${vh}`} ref={ref} {...props}>
-      {strokesFontUnits.map((stroke, si) => {
-        const avgWidth = stroke.points.reduce((s, p) => s + p.width, 0) / stroke.points.length;
-        const begin = `${stroke.delay.toFixed(3)}s`;
-
-        if (stroke.points.length === 1) {
-          const p = stroke.points[0]!;
-          const size = Math.max(avgWidth, 0.5);
-          return lineCap === 'round' ? (
-            <circle key={si} cx={p.x} cy={p.y} r={size / 2} fill="currentColor" opacity={0}>
-              <animate
-                attributeName="opacity"
-                from={0}
-                to={1}
-                dur={`${stroke.animationDuration.toFixed(3)}s`}
-                begin={begin}
-                fill="freeze"
-              />
-            </circle>
-          ) : (
-            <rect key={si} x={p.x - size / 2} y={p.y - size / 2} width={size} height={size} fill="currentColor" opacity={0}>
-              <animate
-                attributeName="opacity"
-                from={0}
-                to={1}
-                dur={`${stroke.animationDuration.toFixed(3)}s`}
-                begin={begin}
-                fill="freeze"
-              />
-            </rect>
-          );
-        }
-
-        const d = stroke.points.map((p, j) => `${j === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        let pathLen = 0;
-        for (let j = 1; j < stroke.points.length; j++) {
-          const dx = stroke.points[j]!.x - stroke.points[j - 1]!.x;
-          const dy = stroke.points[j]!.y - stroke.points[j - 1]!.y;
-          pathLen += Math.sqrt(dx * dx + dy * dy);
-        }
-
-        return (
-          <path
-            key={si}
-            d={d}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={Math.max(avgWidth, 0.5)}
-            strokeLinecap={lineCap}
-            strokeLinejoin="round"
-            strokeDasharray={pathLen}
-            strokeDashoffset={pathLen}
-            opacity={0}
-          >
-            <animate attributeName="opacity" from={0} to={1} dur="0.001s" begin={begin} fill="freeze" />
-            <animate
-              attributeName="stroke-dashoffset"
-              from={pathLen}
-              to={0}
-              dur={`${stroke.animationDuration.toFixed(3)}s`}
-              begin={begin}
-              fill="freeze"
-            />
-          </path>
-        );
-      })}
-    </svg>
-  ));
+/** Create a React SVG component from an SVG string (produced by glyphToAnimatedSVG) */
+function createGlyphComponent(svgString: string) {
+  return forwardRef<SVGSVGElement, SVGProps<SVGSVGElement>>((props, ref) => {
+    const callbackRef = useCallback(
+      (wrapper: HTMLSpanElement | null) => {
+        const svg = wrapper?.querySelector('svg') ?? null;
+        if (svg && props.style) Object.assign(svg.style, props.style);
+        if (typeof ref === 'function') ref(svg);
+        else if (ref) ref.current = svg;
+      },
+      [ref, props.style],
+    );
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG from glyphToAnimatedSVG is trusted
+    return <span ref={callbackRef} style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: svgString }} />;
+  });
 }
 
 function TextPreview({
@@ -1149,7 +1088,8 @@ function TextPreview({
       // Reuse existing component if the pipeline result is the same
       let component = componentCache.current.get(cacheKey);
       if (!component) {
-        component = createGlyphComponent(res);
+        const svg = glyphToAnimatedSVG(res.strokesFontUnits, res.advanceWidth, res.ascender, res.descender, res.lineCap);
+        component = createGlyphComponent(svg);
         componentCache.current.set(cacheKey, component);
       }
       glyphs[char] = component;
