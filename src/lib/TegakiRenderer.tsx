@@ -261,7 +261,11 @@ export function TegakiRenderer({
           '[grid-area:1/1] select-auto whitespace-pre-wrap wrap-break-word pr-[1px]',
           !showOverlay && '[-webkit-text-fill-color:transparent]',
         )}
-        style={{ fontFamily, color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined }}
+        style={{
+          fontFamily,
+          color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
+          fontFeatureSettings: "'calt' 0, 'liga' 0",
+        }}
       >
         {text}
       </div>

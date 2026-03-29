@@ -869,7 +869,9 @@ function TextPreview({
       return;
     }
     setFontReady(false);
-    const face = new FontFace(fontInfo.family, `url(${fontUrl})`);
+    const face = new FontFace(fontInfo.family, `url(${fontUrl})`, {
+      featureSettings: '"calt" 0, "liga" 0',
+    });
     face.load().then((loaded) => {
       document.fonts.add(loaded);
       setFontReady(true);
