@@ -1,11 +1,20 @@
 import type { PipelineResult } from '../commands/generate.ts';
-import type { LineCap } from '../types.ts';
+import type { LineCap, Point } from '../types.ts';
 import { bitmapToPNG, rgbaToPNG } from './png.ts';
 
 export const STROKE_COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990'];
 
 /** Stages that can be rendered as static images (PNG or SVG). */
-export type VisualizationStage = 'outline' | 'flattened' | 'bitmap' | 'skeleton' | 'overlay' | 'distance' | 'traced' | 'strokes';
+export type VisualizationStage =
+  | 'outline'
+  | 'flattened'
+  | 'bitmap'
+  | 'skeleton'
+  | 'overlay'
+  | 'distance'
+  | 'traced'
+  | 'curvature'
+  | 'strokes';
 
 /** Render any static stage. Returns PNG bytes or SVG string. */
 export function renderStage(result: PipelineResult, stage: VisualizationStage): Uint8Array | string {
@@ -24,6 +33,8 @@ export function renderStage(result: PipelineResult, stage: VisualizationStage): 
       return renderDistance(result);
     case 'traced':
       return renderTraced(result);
+    case 'curvature':
+      return renderCurvature(result);
     case 'strokes':
       return renderStrokes(result);
   }
@@ -269,6 +280,132 @@ export function renderDebugAnimation(result: PipelineResult): string {
   <rect width="${w}" height="${h}" fill="white"/>
 ${elements.join('\n')}
 </svg>`;
+}
+
+/**
+ * Render polylines colored by curvature at each point.
+ * Blue = straight, green = moderate turn, red = sharp turn.
+ * Arrows show direction of travel along each polyline.
+ */
+export function renderCurvature(result: PipelineResult): string {
+  const { polylines, bitmapWidth: w, bitmapHeight: h } = result;
+
+  // Compute curvature (turning angle in radians) at each interior point
+  const allCurvatures: { polyIdx: number; pointIdx: number; curvature: number }[] = [];
+  for (let pi = 0; pi < polylines.length; pi++) {
+    const pl = polylines[pi]!;
+    for (let i = 1; i < pl.length - 1; i++) {
+      const prev = pl[i - 1]!;
+      const curr = pl[i]!;
+      const next = pl[i + 1]!;
+      const ax = curr.x - prev.x;
+      const ay = curr.y - prev.y;
+      const bx = next.x - curr.x;
+      const by = next.y - curr.y;
+      const magA = Math.sqrt(ax * ax + ay * ay);
+      const magB = Math.sqrt(bx * bx + by * by);
+      if (magA === 0 || magB === 0) {
+        allCurvatures.push({ polyIdx: pi, pointIdx: i, curvature: 0 });
+        continue;
+      }
+      const cos = Math.max(-1, Math.min(1, (ax * bx + ay * by) / (magA * magB)));
+      allCurvatures.push({ polyIdx: pi, pointIdx: i, curvature: Math.acos(cos) });
+    }
+  }
+
+  // Find max curvature for normalization
+  let maxCurv = 0;
+  for (const c of allCurvatures) {
+    if (c.curvature > maxCurv) maxCurv = c.curvature;
+  }
+  if (maxCurv === 0) maxCurv = 1;
+
+  // Build curvature lookup: polyIdx -> pointIdx -> normalized curvature [0,1]
+  const curvMap = new Map<number, Map<number, number>>();
+  for (const c of allCurvatures) {
+    if (!curvMap.has(c.polyIdx)) curvMap.set(c.polyIdx, new Map());
+    curvMap.get(c.polyIdx)!.set(c.pointIdx, c.curvature / maxCurv);
+  }
+
+  const elements: string[] = [];
+
+  for (let pi = 0; pi < polylines.length; pi++) {
+    const pl = polylines[pi]!;
+    if (pl.length < 2) {
+      const p = pl[0]!;
+      elements.push(`  <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2" fill="#888"/>`);
+      continue;
+    }
+
+    const pCurv = curvMap.get(pi);
+
+    // Draw each segment colored by the curvature at its midpoint
+    for (let i = 0; i < pl.length - 1; i++) {
+      const a = pl[i]!;
+      const b = pl[i + 1]!;
+      // Average curvature of the two endpoints (endpoints get 0)
+      const ca = pCurv?.get(i) ?? 0;
+      const cb = pCurv?.get(i + 1) ?? 0;
+      const t = (ca + cb) / 2;
+      const [r, g, bl] = heatmapColor(t);
+      elements.push(
+        `  <line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="rgb(${r},${g},${bl})" stroke-width="2" stroke-linecap="round"/>`,
+      );
+    }
+
+    // Draw direction arrows at ~25%, 50%, 75% along the polyline
+    for (const frac of [0.25, 0.5, 0.75]) {
+      const idx = Math.min(Math.floor(frac * (pl.length - 1)), pl.length - 2);
+      const from = pl[idx]!;
+      const to = pl[idx + 1]!;
+      const arrow = renderArrow(from, to);
+      if (arrow) elements.push(arrow);
+    }
+
+    // Mark start point
+    const start = pl[0]!;
+    elements.push(
+      `  <circle cx="${start.x.toFixed(1)}" cy="${start.y.toFixed(1)}" r="3" fill="${STROKE_COLORS[pi % STROKE_COLORS.length]}" opacity="0.8"/>`,
+    );
+  }
+
+  // Legend
+  const legendY = h - 8;
+  const legendX = 8;
+  const legendW = 80;
+  for (let i = 0; i <= legendW; i++) {
+    const t = i / legendW;
+    const [r, g, b] = heatmapColor(t);
+    elements.push(
+      `  <line x1="${legendX + i}" y1="${legendY}" x2="${legendX + i}" y2="${legendY + 6}" stroke="rgb(${r},${g},${b})" stroke-width="1"/>`,
+    );
+  }
+  elements.push(`  <text x="${legendX}" y="${legendY - 2}" font-size="6" fill="#333" font-family="sans-serif">straight</text>`);
+  elements.push(
+    `  <text x="${legendX + legendW}" y="${legendY - 2}" font-size="6" fill="#333" font-family="sans-serif" text-anchor="end">sharp</text>`,
+  );
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">
+  <rect width="${w}" height="${h}" fill="white"/>
+${elements.join('\n')}
+</svg>`;
+}
+
+function renderArrow(from: Point, to: Point): string | null {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 2) return null;
+  const mx = (from.x + to.x) / 2;
+  const my = (from.y + to.y) / 2;
+  const nx = dx / len;
+  const ny = dy / len;
+  const size = 3;
+  const x1 = mx - size * nx + size * 0.5 * ny;
+  const y1 = my - size * ny - size * 0.5 * nx;
+  const x2 = mx - size * nx - size * 0.5 * ny;
+  const y2 = my - size * ny + size * 0.5 * nx;
+  return `  <polygon points="${mx.toFixed(1)},${my.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}" fill="#333" opacity="0.6"/>`;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

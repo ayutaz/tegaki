@@ -1,4 +1,6 @@
 import {
+  JUNCTION_ALIGNMENT_COS,
+  JUNCTION_CROSSING_COS,
   MERGE_THRESHOLD_RATIO,
   RDP_TOLERANCE,
   SMOOTH_KINK_MIN_ANGLE,
@@ -61,6 +63,13 @@ function traceChain(
     if (chain.length >= 2 && unvisited.length > 1) {
       // Multiple choices — use curvature-aware direction to pick the straightest
       const { dirX, dirY } = estimateDirection(chain, cx, cy, lookback, curvatureBias);
+
+      // Stop at junctions where other branches form a crossing stroke
+      // and our direction doesn't align with any branch
+      if (shouldStopAtJunction(unvisited, cx, cy, dirX, dirY, skeleton, visited, width, height, lookback)) {
+        break;
+      }
+
       next = pickStraightest(unvisited, cx, cy, dirX, dirY, skeleton, visited, width, height, lookback);
     } else if (unvisited.length === 1) {
       next = unvisited[0]!;
@@ -225,6 +234,75 @@ function peekAhead(
   }
 
   return { x, y };
+}
+
+/**
+ * Detect whether the trace should stop at a junction because other branches
+ * form a crossing stroke (a straight line through the junction).
+ *
+ * Returns true if:
+ * 1. At least one pair of unvisited branches forms a roughly straight line
+ *    (cosine < JUNCTION_CROSSING_COS), AND
+ * 2. The incoming direction does not align well with any branch
+ *    (best cosine < JUNCTION_ALIGNMENT_COS).
+ *
+ * This ensures we stop at crossings where our stroke ends (e.g. approaching
+ * a T-junction from the stem), but continue through crossings where our
+ * stroke passes straight through (e.g. a 4-way intersection).
+ */
+function shouldStopAtJunction(
+  unvisited: Point[],
+  cx: number,
+  cy: number,
+  dirX: number,
+  dirY: number,
+  skeleton: Uint8Array,
+  visited: Uint8Array,
+  width: number,
+  height: number,
+  lookback: number,
+): boolean {
+  if (unvisited.length < 2) return false;
+
+  // Get peek-ahead directions for all branches
+  const branchDirs: { dx: number; dy: number }[] = [];
+  for (const b of unvisited) {
+    const ahead = peekAhead(cx, cy, b, skeleton, visited, width, height, lookback);
+    const dx = ahead.x - cx;
+    const dy = ahead.y - cy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 0) branchDirs.push({ dx: dx / len, dy: dy / len });
+  }
+
+  // Check all pairs for near-opposite directions (straight line through junction)
+  let hasStraightPair = false;
+  for (let i = 0; i < branchDirs.length && !hasStraightPair; i++) {
+    for (let j = i + 1; j < branchDirs.length; j++) {
+      const cos = branchDirs[i]!.dx * branchDirs[j]!.dx + branchDirs[i]!.dy * branchDirs[j]!.dy;
+      if (cos < JUNCTION_CROSSING_COS) {
+        hasStraightPair = true;
+        break;
+      }
+    }
+  }
+
+  if (!hasStraightPair) return false;
+
+  // A crossing exists. Check if our incoming direction aligns with any branch.
+  const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+  if (dirLen === 0) return true; // no clear direction, stop
+
+  const ndx = dirX / dirLen;
+  const ndy = dirY / dirLen;
+
+  let maxAlign = -2;
+  for (const bd of branchDirs) {
+    const align = ndx * bd.dx + ndy * bd.dy;
+    if (align > maxAlign) maxAlign = align;
+  }
+
+  // Stop if our direction doesn't align well with any branch
+  return maxAlign < JUNCTION_ALIGNMENT_COS;
 }
 
 function perpendicularDistance(point: Point, lineStart: Point, lineEnd: Point): number {
@@ -466,14 +544,57 @@ export function traceAndSimplify(
   const visited = new Uint8Array(width * height);
   const polylines: Point[][] = [];
 
-  // First pass: start from endpoints (degree 1)
+  // Collect all endpoints and compute skeleton bounding box
+  const endpoints: Point[] = [];
+  let minX = width;
+  let maxX = 0;
+  let minY = height;
+  let maxY = 0;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      if (!skeleton[y * width + x] || visited[y * width + x]) continue;
+      if (!skeleton[y * width + x]) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
       if (degree(x, y, skeleton, width, height) === 1) {
-        const chain = traceChain(x, y, skeleton, visited, width, height, lookback, curvatureBias);
-        if (chain.length > 1) polylines.push(chain);
+        endpoints.push({ x, y });
       }
+    }
+  }
+
+  // Start from the endpoint closest to the middle-left of the bounding box
+  let lastEnd: Point = { x: minX, y: (minY + maxY) / 2 };
+
+  // First pass: trace from endpoints, each time picking the closest unvisited
+  // endpoint to the end of the previous chain
+  while (true) {
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < endpoints.length; i++) {
+      const ep = endpoints[i]!;
+      if (visited[ep.y * width + ep.x]) continue;
+      const d = dist(ep, lastEnd);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx < 0) break;
+
+    const ep = endpoints[bestIdx]!;
+    const chain = traceChain(ep.x, ep.y, skeleton, visited, width, height, lookback, curvatureBias);
+    if (chain.length > 1) {
+      // Orient the chain so it starts from the end nearest lastEnd
+      // (the trace may have gone "away" from the previous segment's exit)
+      const startDist = dist(chain[0]!, lastEnd);
+      const endDist = dist(chain[chain.length - 1]!, lastEnd);
+      if (endDist < startDist) {
+        chain.reverse();
+      }
+      polylines.push(chain);
+      lastEnd = chain[chain.length - 1]!;
     }
   }
 

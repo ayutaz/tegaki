@@ -1,7 +1,18 @@
 import { DEFAULT_OPTIONS, type PipelineOptions } from '../commands/generate.ts';
 import { DEFAULT_CHARS } from '../constants.ts';
 
-type Stage = 'outline' | 'flattened' | 'bitmap' | 'skeleton' | 'overlay' | 'distance' | 'traced' | 'strokes' | 'animation' | 'final';
+type Stage =
+  | 'outline'
+  | 'flattened'
+  | 'bitmap'
+  | 'skeleton'
+  | 'overlay'
+  | 'distance'
+  | 'traced'
+  | 'curvature'
+  | 'strokes'
+  | 'animation'
+  | 'final';
 type PreviewMode = 'glyph' | 'text';
 
 /** All state that gets persisted to the URL */

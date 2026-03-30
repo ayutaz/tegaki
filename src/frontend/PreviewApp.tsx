@@ -19,7 +19,18 @@ import { parseUrlState, syncUrlState } from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';
 
-type Stage = 'outline' | 'flattened' | 'bitmap' | 'skeleton' | 'overlay' | 'distance' | 'traced' | 'strokes' | 'animation' | 'final';
+type Stage =
+  | 'outline'
+  | 'flattened'
+  | 'bitmap'
+  | 'skeleton'
+  | 'overlay'
+  | 'distance'
+  | 'traced'
+  | 'curvature'
+  | 'strokes'
+  | 'animation'
+  | 'final';
 
 const STAGES: { key: Stage; label: string }[] = [
   { key: 'outline', label: 'Outline' },
@@ -29,6 +40,7 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: 'overlay', label: 'Overlay' },
   { key: 'distance', label: 'Distance' },
   { key: 'traced', label: 'Traced' },
+  { key: 'curvature', label: 'Curvature' },
   { key: 'strokes', label: 'Strokes' },
   { key: 'animation', label: 'Animation' },
   { key: 'final', label: 'Final' },

@@ -21,6 +21,7 @@ export const EXAMPLE_FONTS = [
   'Merriweather',
   'Playfair Display',
   'Source Code Pro',
+  'Parisienne',
 ];
 
 export const CACHE_DIR = '.cache/fonts';
@@ -83,12 +84,31 @@ export const SMOOTH_KINK_THRESHOLD = 0.15;
 export const MERGE_THRESHOLD_RATIO = 0.08;
 
 /**
+ * Cosine threshold for detecting straight-line crossings at junctions.
+ * Two branches are considered to form a straight line through a junction if
+ * the cosine of the angle between their directions is below this value.
+ * -1 = perfectly opposite, -0.7 ≈ 135° apart.
+ *
+ * Set to -2 to disable junction crossing detection.
+ */
+export const JUNCTION_CROSSING_COS = -0.7;
+
+/**
+ * Minimum cosine alignment between the incoming trace direction and a junction
+ * branch for the trace to continue through a crossing. If the best alignment
+ * with any branch is below this threshold, the trace stops at the junction.
+ *
+ * Set to -2 to never stop at crossings (always continue through).
+ */
+export const JUNCTION_ALIGNMENT_COS = 0.5;
+
+/**
  * Weight of x-coordinate when scoring polyline orientation (start-point selection).
  * Higher values give more weight to left-to-right preference vs top-to-bottom.
  *
  * Set to 0 for pure top-to-bottom orientation preference.
  */
-export const ORIENT_X_WEIGHT = 0.3;
+export const ORIENT_X_WEIGHT = 2;
 
 /**
  * Y-axis tolerance (in pixels) when sorting stroke components.

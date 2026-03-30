@@ -5,6 +5,7 @@ import type { PipelineResult } from '../commands/generate.ts';
 import { charToFilename } from '../processing/animated-svg.ts';
 import {
   renderBitmap,
+  renderCurvature,
   renderDebugAnimation,
   renderDistance,
   renderFlattened,
@@ -29,6 +30,7 @@ export async function writeDebugOutput(debugDir: string, char: string, result: P
   await Bun.write(join(glyphDir, '5-overlay.png'), renderOverlay(result));
   await Bun.write(join(glyphDir, '6-distance.png'), renderDistance(result));
   await Bun.write(join(glyphDir, '7-traced.svg'), renderTraced(result));
-  await Bun.write(join(glyphDir, '8-strokes.svg'), renderStrokes(result));
-  await Bun.write(join(glyphDir, '9-animation.svg'), renderDebugAnimation(result));
+  await Bun.write(join(glyphDir, '8-curvature.svg'), renderCurvature(result));
+  await Bun.write(join(glyphDir, '9-strokes.svg'), renderStrokes(result));
+  await Bun.write(join(glyphDir, '10-animation.svg'), renderDebugAnimation(result));
 }
