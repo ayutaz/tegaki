@@ -10,11 +10,12 @@ import {
   parseFont,
   processGlyph,
 } from '../commands/generate.ts';
-import { DEFAULT_CHARS, EXAMPLE_FONTS } from '../constants.ts';
+import { EXAMPLE_FONTS } from '../constants.ts';
 import { computeTimeline, TegakiRenderer } from '../lib/TegakiRenderer.tsx';
 import { glyphToAnimatedSVG } from '../processing/animated-svg.ts';
 import { renderStage, STROKE_COLORS, type VisualizationStage } from '../processing/visualize.ts';
 import type { LineCap, TegakiBundle } from '../types.ts';
+import { parseUrlState, syncUrlState } from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';
 
@@ -43,20 +44,24 @@ const SKELETON_METHODS: { value: BrowserSkeletonMethod; label: string }[] = [
 ];
 
 export function PreviewApp() {
-  const [fontFamily, setFontFamily] = useState('Caveat');
+  const [initialUrlState] = useState(parseUrlState);
+  const [fontFamily, setFontFamily] = useState(initialUrlState.fontFamily);
   const [fontInfo, setFontInfo] = useState<ParsedFontInfo | null>(null);
   const [fontBuffer, setFontBuffer] = useState<ArrayBuffer | null>(null);
   const [fontLoading, setFontLoading] = useState(false);
   const [fontError, setFontError] = useState('');
-  const [chars, setChars] = useState(DEFAULT_CHARS);
-  const [selectedChar, setSelectedChar] = useState('A');
-  const [activeStage, setActiveStage] = useState<Stage>('final');
-  const [options, setOptions] = useState<PipelineOptions>(DEFAULT_OPTIONS);
+  const [chars, setChars] = useState(initialUrlState.chars);
+  const [selectedChar, setSelectedChar] = useState(initialUrlState.selectedChar);
+  const [activeStage, setActiveStage] = useState<Stage>(initialUrlState.activeStage);
+  const [options, setOptions] = useState<PipelineOptions>(initialUrlState.options);
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [processing, setProcessing] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('glyph');
-  const [previewText, setPreviewText] = useState('Hello World');
+  const [previewMode, setPreviewMode] = useState<PreviewMode>(initialUrlState.previewMode);
+  const [previewText, setPreviewText] = useState(initialUrlState.previewText);
+  const [animSpeed, setAnimSpeed] = useState(initialUrlState.animSpeed);
+  const [fontSizePx, setFontSizePx] = useState(initialUrlState.fontSizePx);
+  const [showOverlay, setShowOverlay] = useState(initialUrlState.showOverlay);
 
   // Animation state (lifted up so controls live outside the canvas area)
   const [animPlaying, setAnimPlaying] = useState(true);
@@ -175,6 +180,36 @@ export function PreviewApp() {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [animPlaying, totalDuration, activeStage]);
+
+  // Sync configurable state to URL (debounced to avoid thrashing during slider drags)
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      syncUrlState({
+        fontFamily,
+        chars,
+        selectedChar,
+        activeStage,
+        previewMode,
+        previewText,
+        options,
+        animSpeed,
+        fontSizePx,
+        showOverlay,
+      });
+    }, 300);
+    return () => clearTimeout(syncTimerRef.current);
+  }, [fontFamily, chars, selectedChar, activeStage, previewMode, previewText, options, animSpeed, fontSizePx, showOverlay]);
+
+  // Auto-load font on mount (from URL state or default)
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      loadFont(fontFamily);
+    }
+  }, [fontFamily, loadFont]);
 
   const updateOption = useCallback(<K extends keyof PipelineOptions>(key: K, value: PipelineOptions[K]) => {
     resultsCache.current.clear();
@@ -575,6 +610,12 @@ export function PreviewApp() {
             text={previewText}
             onTextChange={setPreviewText}
             resultsCache={resultsCache}
+            animSpeed={animSpeed}
+            onAnimSpeedChange={setAnimSpeed}
+            fontSizePx={fontSizePx}
+            onFontSizePxChange={setFontSizePx}
+            showOverlay={showOverlay}
+            onShowOverlayChange={setShowOverlay}
           />
         )}
       </main>
@@ -841,6 +882,12 @@ function TextPreview({
   text,
   onTextChange,
   resultsCache,
+  animSpeed,
+  onAnimSpeedChange,
+  fontSizePx,
+  onFontSizePxChange,
+  showOverlay,
+  onShowOverlayChange,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -848,14 +895,17 @@ function TextPreview({
   text: string;
   onTextChange: (text: string) => void;
   resultsCache: React.RefObject<Map<string, PipelineResult>>;
+  animSpeed: number;
+  onAnimSpeedChange: (v: number) => void;
+  fontSizePx: number;
+  onFontSizePxChange: (v: number) => void;
+  showOverlay: boolean;
+  onShowOverlayChange: (v: boolean) => void;
 }) {
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
   const timeRef = useRef(0);
   const [fontReady, setFontReady] = useState(false);
-  const [animSpeed, setAnimSpeed] = useState(1);
-  const [fontSizePx, setFontSizePx] = useState(128);
-  const [showOverlay, setShowOverlay] = useState(false);
 
   // Synchronous font change detection — reset all font-dependent state BEFORE rendering
   // so TegakiRenderer never sees stale fontReady, displayTime, or glyph components.
@@ -1083,7 +1133,7 @@ function TextPreview({
             max={5}
             step={0.1}
             value={animSpeed}
-            onChange={(e) => setAnimSpeed(Number(e.target.value))}
+            onChange={(e) => onAnimSpeedChange(Number(e.target.value))}
           />
           <span className="tabular-nums text-gray-400 w-8">{animSpeed}x</span>
         </label>
@@ -1097,13 +1147,13 @@ function TextPreview({
             max={256}
             step={1}
             value={fontSizePx}
-            onChange={(e) => setFontSizePx(Number(e.target.value))}
+            onChange={(e) => onFontSizePxChange(Number(e.target.value))}
           />
           <span className="tabular-nums text-gray-400 w-10">{fontSizePx}px</span>
         </label>
 
         <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-          <input type="checkbox" checked={showOverlay} onChange={(e) => setShowOverlay(e.target.checked)} />
+          <input type="checkbox" checked={showOverlay} onChange={(e) => onShowOverlayChange(e.target.checked)} />
           Overlay
         </label>
       </div>
