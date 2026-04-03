@@ -5,6 +5,20 @@ import type { TegakiBundle } from '../types.ts';
 
 const GLYPH_GAP = 0.1;
 
+// --- Children coercion ---
+
+type Coercible = string | number | boolean | null | undefined | readonly Coercible[];
+
+function coerceToString(value: unknown): string {
+  if (value == null || typeof value === 'boolean') return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'bigint') return String(value);
+  if (Array.isArray(value)) return value.map(coerceToString).join('');
+  return '';
+}
+
+// --- Timeline ---
+
 interface TimelineEntry {
   char: string;
   offset: number;
@@ -34,6 +48,8 @@ export function computeTimeline(text: string, font: TegakiBundle): Timeline {
   }
   return { entries, totalDuration: Math.max(0, offset) };
 }
+
+// --- Text Layout ---
 
 interface TextLayout {
   /** Character indices per line */
@@ -128,21 +144,145 @@ function computeTextLayout(text: string, fontFamily: string, fontSize: number, m
   return { lines, charWidths, kernings, intrinsicWidth };
 }
 
+// --- Props ---
+
+export interface TegakiRendererProps extends Omit<ComponentProps<'div'>, 'children'> {
+  /** TegakiBundle with font data and animated glyph SVGs. */
+  font?: TegakiBundle;
+
+  /** Text to animate. Takes precedence over children. */
+  text?: string;
+
+  /** Children coerced to string. Strings and numbers are kept; everything else is ignored. */
+  children?: Coercible;
+
+  /**
+   * Controlled time in seconds. When provided, the component uses this value
+   * directly and does not manage its own playback.
+   */
+  time?: number;
+
+  /** Initial time for uncontrolled mode. Default: `0` */
+  defaultTime?: number;
+
+  /** Playback speed multiplier (uncontrolled mode). Default: `1` */
+  speed?: number;
+
+  /** Whether animation is playing (uncontrolled mode). Default: `true` */
+  playing?: boolean;
+
+  /** Loop animation when it reaches the end (uncontrolled mode). Default: `false` */
+  loop?: boolean;
+
+  /** Called on every frame with the current time in uncontrolled mode. */
+  onTimeChange?: (time: number) => void;
+
+  /** Called once when the animation reaches the end of the timeline. */
+  onComplete?: () => void;
+
+  /** Show debug text overlay. */
+  showOverlay?: boolean;
+}
+
+// --- Component ---
+
 export function TegakiRenderer({
-  text,
-  time,
   font,
+  text,
+  children,
+  time: controlledTime,
+  defaultTime = 0,
+  speed = 1,
+  playing = true,
+  loop = false,
+  onTimeChange,
+  onComplete,
   showOverlay,
   ...props
-}: { text: string; time: number; font: TegakiBundle; showOverlay?: boolean } & ComponentProps<'div'>) {
-  const fontFamily = font.family;
-  const emHeight = (font.ascender - font.descender) / font.unitsPerEm;
-  const baselineOffset = font.descender / font.unitsPerEm;
+}: TegakiRendererProps) {
+  const resolvedText = text ?? coerceToString(children);
+  const isControlled = controlledTime !== undefined;
+
+  // --- Internal time (uncontrolled mode) ---
+  const [internalTime, setInternalTime] = useState(defaultTime);
+  const currentTime = isControlled ? controlledTime : internalTime;
+
+  // Stable callback refs to avoid restarting the rAF loop
+  const onTimeChangeRef = useRef(onTimeChange);
+  onTimeChangeRef.current = onTimeChange;
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  // --- Font-derived constants ---
+  const fontFamily = font?.family;
+  const emHeight = font ? (font.ascender - font.descender) / font.unitsPerEm : 0;
+  const baselineOffset = font ? font.descender / font.unitsPerEm : 0;
+
+  // --- Container measurement ---
   const rootRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [fontSize, setFontSize] = useState(0);
 
-  const timeline = useMemo(() => computeTimeline(text, font), [text, font]);
+  // --- Timeline ---
+  const timeline = useMemo(
+    () => (font && resolvedText ? computeTimeline(resolvedText, font) : { entries: [] as TimelineEntry[], totalDuration: 0 }),
+    [resolvedText, font],
+  );
+
+  // Duration ref so the rAF loop always sees the latest value without restarting
+  const totalDurationRef = useRef(timeline.totalDuration);
+  totalDurationRef.current = timeline.totalDuration;
+
+  // --- Completion tracking ---
+  const prevCompletedRef = useRef(false);
+  const isComplete = timeline.totalDuration > 0 && currentTime >= timeline.totalDuration;
+
+  useEffect(() => {
+    if (isComplete && !prevCompletedRef.current) {
+      prevCompletedRef.current = true;
+      onCompleteRef.current?.();
+    } else if (!isComplete) {
+      prevCompletedRef.current = false;
+    }
+  });
+
+  // --- Uncontrolled: time change notification ---
+  useEffect(() => {
+    if (!isControlled) {
+      onTimeChangeRef.current?.(internalTime);
+    }
+  }, [internalTime, isControlled]);
+
+  // --- Uncontrolled: rAF playback loop ---
+  useEffect(() => {
+    if (isControlled || !playing || !font) return;
+
+    let lastTs: number | null = null;
+    let raf: number;
+
+    const tick = (ts: number) => {
+      if (lastTs === null) lastTs = ts;
+      const delta = ((ts - lastTs) / 1000) * speed;
+      lastTs = ts;
+
+      setInternalTime((prev) => {
+        const totalDur = totalDurationRef.current;
+        if (totalDur === 0 || (!loop && prev >= totalDur)) return prev;
+        let next = prev + delta;
+        if (next >= totalDur) {
+          next = loop ? next % totalDur : totalDur;
+        }
+        return next;
+      });
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isControlled, playing, speed, loop, font]);
+
+  // --- SVG refs ---
   const svgRefs = useRef(new Map<number, SVGSVGElement>());
 
   // Clear stale SVG refs when font changes so useLayoutEffect doesn't set time on old elements
@@ -152,7 +292,7 @@ export function TegakiRenderer({
     svgRefs.current.clear();
   }
 
-  // Observe container size for line wrapping
+  // --- Container size observation ---
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -174,24 +314,30 @@ export function TegakiRenderer({
     if (fs !== fontSize) setFontSize(fs);
   });
 
-  // Compute text layout with pretext
+  // --- Text layout ---
   const layout = useMemo(() => {
-    if (!fontFamily || !fontSize || !containerWidth || !text) return null;
-    return computeTextLayout(text, fontFamily, fontSize, containerWidth);
-  }, [text, fontFamily, fontSize, containerWidth]);
+    if (!fontFamily || !fontSize || !containerWidth || !resolvedText) return null;
+    return computeTextLayout(resolvedText, fontFamily, fontSize, containerWidth);
+  }, [resolvedText, fontFamily, fontSize, containerWidth]);
 
-  // Update all SVG elements' current time before paint
+  // --- Sync SVG current time before paint ---
   useLayoutEffect(() => {
     for (let i = 0; i < timeline.entries.length; i++) {
       const entry = timeline.entries[i]!;
       const svg = svgRefs.current.get(i);
       if (!svg || !entry.hasSvg) continue;
-      const localTime = Math.max(0, Math.min(time - entry.offset, entry.duration));
+      const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
       svg.setCurrentTime(localTime);
     }
-  }, [time, timeline]);
+  }, [currentTime, timeline]);
 
-  const characters = text.split('');
+  // --- Rendering ---
+
+  if (!font || !resolvedText) {
+    return <div ref={rootRef} {...props} />;
+  }
+
+  const characters = resolvedText.split('');
 
   const renderGlyph = (charIdx: number) => {
     const char = characters[charIdx]!;
@@ -218,7 +364,7 @@ export function TegakiRenderer({
             if (node) {
               node.pauseAnimations();
               svgRefs.current.set(charIdx, node);
-              const localTime = Math.max(0, Math.min(time - entry.offset, entry.duration));
+              const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
               node.setCurrentTime(localTime);
             } else {
               svgRefs.current.delete(charIdx);
@@ -233,7 +379,7 @@ export function TegakiRenderer({
         />
       );
     } else {
-      const isVisible = time >= entry.offset;
+      const isVisible = currentTime >= entry.offset;
       content = <span style={{ fontFamily, visibility: isVisible ? 'visible' : 'hidden' }}>{char}</span>;
     }
 
@@ -283,7 +429,7 @@ export function TegakiRenderer({
           fontFeatureSettings: "'calt' 0, 'liga' 0",
         }}
       >
-        {text}
+        {resolvedText}
       </div>
     </div>
   );
