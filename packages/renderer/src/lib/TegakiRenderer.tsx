@@ -89,9 +89,9 @@ export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string,
   /** Called once when the animation reaches the end of the timeline. */
   onComplete?: () => void;
 
-  /** Rendering mode. `'svg'` uses animated SVG elements, `'canvas'` draws strokes
-   * on a `<canvas>` (requires `font.glyphData`). Default: `'svg'` */
-  mode?: 'svg' | 'canvas';
+  /** Rendering mode. `'canvas'` draws strokes on a `<canvas>` (requires
+   * `font.glyphData`), `'svg'` uses animated SVG elements. Default: `'canvas'` */
+  mode?: 'canvas' | 'svg';
 
   /** Visual effects applied during canvas rendering. */
   effects?: E;
@@ -115,7 +115,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   children,
   time: timeProp,
   onComplete,
-  mode = 'svg',
+  mode = 'canvas',
   effects,
   segmentSize,
   timing,
@@ -253,10 +253,10 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     return () => cancelAnimationFrame(raf);
   }, [isControlled, playing, speed, loop, catchUp, font]);
 
-  // --- SVG refs ---
+  // --- SVG refs (only needed in SVG mode) ---
   const svgRefs = useRef(new Map<number, SVGSVGElement>());
+  const svgRefCallbacks = useRef(new Map<number, (node: SVGSVGElement | null) => void>());
 
-  // Stable ref callback factory — only stores/removes the node, no time sync
   const makeSvgRef = useCallback(
     (charIdx: number) => (node: SVGSVGElement | null) => {
       if (node) {
@@ -269,8 +269,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     [],
   );
 
-  // Cache ref callbacks so React doesn't see a new function each render
-  const svgRefCallbacks = useRef(new Map<number, (node: SVGSVGElement | null) => void>());
   const getSvgRef = useCallback(
     (charIdx: number) => {
       let cb = svgRefCallbacks.current.get(charIdx);
@@ -283,10 +281,12 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     [makeSvgRef],
   );
 
-  // Clear stale SVG refs when font changes so useLayoutEffect doesn't set time on old elements
+  // Clear stale SVG refs when font or mode changes
   const prevFontRef = useRef(font);
-  if (prevFontRef.current !== font) {
+  const prevModeRef = useRef(mode);
+  if (prevFontRef.current !== font || prevModeRef.current !== mode) {
     prevFontRef.current = font;
+    prevModeRef.current = mode;
     svgRefs.current.clear();
     svgRefCallbacks.current.clear();
   }
@@ -450,59 +450,66 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     segmentSize,
   ]);
 
-  // --- Rendering ---
+  // --- SVG rendering (skipped entirely in canvas mode) ---
+  const lineElements = useMemo(() => {
+    if (mode !== 'svg' || !font || !resolvedText) return null;
 
-  if (!font || !resolvedText) {
-    return <div ref={rootRef} {...props} />;
-  }
+    const characters = graphemes(resolvedText);
 
-  const characters = graphemes(resolvedText);
+    const renderGlyph = (charIdx: number) => {
+      const char = characters[charIdx]!;
+      const entry = timeline.entries[charIdx]!;
+      const GlyphSvg = font.glyphs[char] as any;
+      const width = layout?.charWidths[charIdx] ?? 1;
+      const kerning = layout?.kernings[charIdx];
 
-  const renderGlyph = (charIdx: number) => {
-    const char = characters[charIdx]!;
-    const entry = timeline.entries[charIdx]!;
-    const GlyphSvg = font.glyphs[char] as any;
-    const width = layout?.charWidths[charIdx] ?? 1;
-    const kerning = layout?.kernings[charIdx];
+      if (char === '\n') return null;
 
-    if (char === '\n') return null; // newlines handled by line structure
+      if (GlyphSvg) {
+        return (
+          <GlyphSvg
+            key={charIdx}
+            ref={getSvgRef(charIdx)}
+            style={{
+              display: 'inline-block',
+              verticalAlign: `${baselineOffset}em`,
+              width: `${width}em`,
+              marginRight: kerning ? `${kerning}em` : undefined,
+              height: `${emHeight}em`,
+              overflow: 'visible',
+            }}
+          />
+        );
+      }
 
-    if (GlyphSvg) {
+      const isVisible = currentTime >= entry.offset + entry.duration;
       return (
-        <GlyphSvg
-          key={charIdx}
-          ref={getSvgRef(charIdx)}
-          style={{
-            display: 'inline-block',
-            verticalAlign: `${baselineOffset}em`,
-            width: `${width}em`,
-            marginRight: kerning ? `${kerning}em` : undefined,
-            height: `${emHeight}em`,
-            overflow: 'visible',
-          }}
-        />
+        <span style={{ fontFamily, visibility: isVisible ? 'visible' : 'hidden' }} key={charIdx}>
+          {char}
+        </span>
       );
-    }
+    };
 
-    const isVisible = currentTime >= entry.offset + entry.duration;
-    return (
-      <span style={{ fontFamily, visibility: isVisible ? 'visible' : 'hidden' }} key={charIdx}>
-        {char}
-      </span>
-    );
-  };
-
-  const lineElements = layout
-    ? layout.lines.map((lineIndices, lineIdx) => {
+    if (layout) {
+      return layout.lines.map((lineIndices, lineIdx) => {
         const isEmpty = lineIndices.every((i) => characters[i] === '\n');
         return (
           <div style={{ whiteSpace: 'nowrap', height: isEmpty ? '1lh' : undefined, lineHeight: `${lineHeight}px` }} key={lineIdx}>
             {lineIndices.map(renderGlyph)}
           </div>
         );
-      })
-    : // Fallback before layout is ready: single line
-      characters.length > 0 && <div style={{ whiteSpace: 'nowrap' }}>{characters.map((_, i) => renderGlyph(i))}</div>;
+      });
+    }
+
+    // Fallback before layout is ready: single line
+    return characters.length > 0 ? <div style={{ whiteSpace: 'nowrap' }}>{characters.map((_, i) => renderGlyph(i))}</div> : null;
+  }, [mode, resolvedText, timeline, font, layout, getSvgRef, baselineOffset, emHeight, currentTime, fontFamily, lineHeight]);
+
+  // --- Rendering ---
+
+  if (!font || !resolvedText) {
+    return <div ref={rootRef} {...props} />;
+  }
 
   return (
     <div

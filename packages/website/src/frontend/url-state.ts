@@ -78,7 +78,7 @@ export const URL_DEFAULTS: UrlState = {
   fontSizePx: 128,
   lineHeightRatio: 1.5,
   showOverlay: false,
-  renderMode: 'svg',
+  renderMode: 'canvas',
   timeMode: 'controlled',
   loop: false,
   catchUp: 0,
