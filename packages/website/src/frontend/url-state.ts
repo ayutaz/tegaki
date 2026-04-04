@@ -15,6 +15,8 @@ type Stage =
 type PreviewMode = 'glyph' | 'text';
 
 /** All state that gets persisted to the URL */
+export type RenderMode = 'svg' | 'canvas';
+
 export interface UrlState {
   fontFamily: string;
   chars: string;
@@ -27,6 +29,7 @@ export interface UrlState {
   animSpeed: number;
   fontSizePx: number;
   showOverlay: boolean;
+  renderMode: RenderMode;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -40,6 +43,7 @@ export const URL_DEFAULTS: UrlState = {
   animSpeed: 1,
   fontSizePx: 128,
   showOverlay: false,
+  renderMode: 'svg',
 };
 
 // Short keys for compact URLs — only non-default values are written
@@ -80,6 +84,7 @@ export function parseUrlState(): UrlState {
   if (p.has('as')) state.animSpeed = Number(p.get('as'));
   if (p.has('fs')) state.fontSizePx = Number(p.get('fs'));
   if (p.has('ol')) state.showOverlay = p.get('ol') === '1';
+  if (p.has('rm')) state.renderMode = p.get('rm') as RenderMode;
 
   // Pipeline options — read short keys
   for (const [short, long] of Object.entries(REVERSE_OPTION_KEYS)) {
@@ -109,6 +114,7 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.animSpeed !== URL_DEFAULTS.animSpeed) p.set('as', String(state.animSpeed));
   if (state.fontSizePx !== URL_DEFAULTS.fontSizePx) p.set('fs', String(state.fontSizePx));
   if (state.showOverlay !== URL_DEFAULTS.showOverlay) p.set('ol', '1');
+  if (state.renderMode !== URL_DEFAULTS.renderMode) p.set('rm', state.renderMode);
 
   // Pipeline options — only non-defaults
   for (const [long, short] of Object.entries(OPTION_KEYS)) {

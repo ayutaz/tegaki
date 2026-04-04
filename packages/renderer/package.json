@@ -31,9 +31,10 @@
   },
   "exports": {
     ".": {
+      "tegaki@dev": "./src/index.ts",
+      "source": "./src/index.ts",
       "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs",
-      "source": "./src/index.ts"
+      "import": "./dist/index.mjs"
     }
   },
   "files": [

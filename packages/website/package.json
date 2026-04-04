@@ -14,8 +14,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "dev": "bun --watch src/server.ts",
-    "serve": "bun --watch src/server.ts",
+    "dev": "bun --conditions=tegaki@dev --watch src/server.ts",
+    "serve": "bun --conditions=tegaki@dev --watch src/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

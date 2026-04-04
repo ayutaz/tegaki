@@ -16,7 +16,7 @@ import {
   STROKE_COLORS,
   type VisualizationStage,
 } from 'tegaki-generator';
-import { parseUrlState, syncUrlState } from './url-state.ts';
+import { parseUrlState, type RenderMode, syncUrlState } from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';
 
@@ -75,6 +75,7 @@ export function PreviewApp() {
   const [animSpeed, setAnimSpeed] = useState(initialUrlState.animSpeed);
   const [fontSizePx, setFontSizePx] = useState(initialUrlState.fontSizePx);
   const [showOverlay, setShowOverlay] = useState(initialUrlState.showOverlay);
+  const [renderMode, setRenderMode] = useState<RenderMode>(initialUrlState.renderMode);
 
   // Animation state (lifted up so controls live outside the canvas area)
   const [animPlaying, setAnimPlaying] = useState(true);
@@ -210,10 +211,11 @@ export function PreviewApp() {
         animSpeed,
         fontSizePx,
         showOverlay,
+        renderMode,
       });
     }, 300);
     return () => clearTimeout(syncTimerRef.current);
-  }, [fontFamily, chars, selectedChar, activeStage, previewMode, previewText, options, animSpeed, fontSizePx, showOverlay]);
+  }, [fontFamily, chars, selectedChar, activeStage, previewMode, previewText, options, animSpeed, fontSizePx, showOverlay, renderMode]);
 
   // Auto-load font on mount (from URL state or default)
   const mountedRef = useRef(false);
@@ -640,6 +642,8 @@ export function PreviewApp() {
             onFontSizePxChange={setFontSizePx}
             showOverlay={showOverlay}
             onShowOverlayChange={setShowOverlay}
+            renderMode={renderMode}
+            onRenderModeChange={setRenderMode}
           />
         )}
       </main>
@@ -914,6 +918,8 @@ function TextPreview({
   onFontSizePxChange,
   showOverlay,
   onShowOverlayChange,
+  renderMode,
+  onRenderModeChange,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -927,6 +933,8 @@ function TextPreview({
   onFontSizePxChange: (v: number) => void;
   showOverlay: boolean;
   onShowOverlayChange: (v: boolean) => void;
+  renderMode: RenderMode;
+  onRenderModeChange: (v: RenderMode) => void;
 }) {
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
@@ -988,6 +996,7 @@ function TextPreview({
     if (!fontInfo || !fontUrl) return null;
 
     const glyphs: Record<string, React.FC<SVGProps<SVGSVGElement>>> = {};
+    const glyphData: NonNullable<TegakiBundle['glyphData']> = {};
     const glyphTimings: Record<string, number> = {};
     const optionsKey = JSON.stringify(options);
 
@@ -1013,6 +1022,15 @@ function TextPreview({
       }
       glyphs[char] = component;
 
+      glyphData[char] = {
+        advanceWidth: res.advanceWidth,
+        strokes: res.strokesFontUnits.map((s) => ({
+          points: s.points.map((p) => ({ x: p.x, y: p.y, t: p.t, width: p.width })),
+          delay: s.delay,
+          animationDuration: s.animationDuration,
+        })),
+      };
+
       const last = res.strokesFontUnits[res.strokesFontUnits.length - 1];
       glyphTimings[char] = last ? Math.round((last.delay + last.animationDuration) * 1000) / 1000 : 0;
     }
@@ -1025,6 +1043,7 @@ function TextPreview({
       ascender: fontInfo.ascender,
       descender: fontInfo.descender,
       glyphs,
+      glyphData,
       glyphTimings,
       registerFontFace: async () => {},
     } satisfies TegakiBundle;
@@ -1099,6 +1118,7 @@ function TextPreview({
             text={text}
             time={displayTime}
             font={fontBundle}
+            mode={renderMode}
             showOverlay={showOverlay}
           />
         )}
@@ -1181,6 +1201,20 @@ function TextPreview({
         <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
           <input type="checkbox" checked={showOverlay} onChange={(e) => onShowOverlayChange(e.target.checked)} />
           Overlay
+        </label>
+
+        <span className="border-l border-gray-200 h-6" />
+
+        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          Render
+          <select
+            className="px-1.5 py-0.5 border border-gray-300 rounded text-xs bg-white"
+            value={renderMode}
+            onChange={(e) => onRenderModeChange(e.target.value as RenderMode)}
+          >
+            <option value="svg">SVG</option>
+            <option value="canvas">Canvas</option>
+          </select>
         </label>
       </div>
     </div>

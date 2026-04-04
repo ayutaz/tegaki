@@ -59,6 +59,15 @@ export interface PathCommand {
   y2?: number;
 }
 
+export interface TegakiGlyphData {
+  advanceWidth: number;
+  strokes: {
+    points: { x: number; y: number; t: number; width: number }[];
+    delay: number;
+    animationDuration: number;
+  }[];
+}
+
 export interface TegakiBundle {
   family: string;
   lineCap: LineCap;
@@ -67,6 +76,7 @@ export interface TegakiBundle {
   ascender: number;
   descender: number;
   glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
+  glyphData?: Record<string, TegakiGlyphData>;
   glyphTimings: Record<string, number>;
   registerFontFace: () => Promise<void>;
 }

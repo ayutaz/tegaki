@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import type { TegakiBundle } from '../types.ts';
+import { drawGlyph } from './drawGlyph.ts';
 
 const GLYPH_GAP = 0.1;
 
@@ -189,6 +190,10 @@ export interface TegakiRendererProps extends Omit<ComponentProps<'div'>, 'childr
   /** Called once when the animation reaches the end of the timeline. */
   onComplete?: () => void;
 
+  /** Rendering mode. `'svg'` uses animated SVG elements, `'canvas'` draws strokes
+   * on a `<canvas>` (requires `font.glyphData`). Default: `'svg'` */
+  mode?: 'svg' | 'canvas';
+
   /** Show debug text overlay. */
   showOverlay?: boolean;
 }
@@ -206,6 +211,7 @@ export function TegakiRenderer({
   loop = false,
   onTimeChange,
   onComplete,
+  mode = 'svg',
   showOverlay,
   ...props
 }: TegakiRendererProps) {
@@ -405,6 +411,79 @@ export function TegakiRenderer({
     prevActiveRange.current = [activeStart, activeEnd];
   }, [currentTime, timeline]);
 
+  // --- Canvas rendering ---
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useLayoutEffect(() => {
+    if (mode !== 'canvas') return;
+    const canvas = canvasRef.current;
+    if (!canvas || !font?.glyphData || !layout || !fontSize) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const el = rootRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+
+    // Resize canvas backing store if needed
+    const needsResize = canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr);
+    if (needsResize) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // Read currentColor from the container
+    const color = getComputedStyle(el).color;
+
+    const lineHeight = fontSize * 1.4;
+    const emHeightPx = emHeight * fontSize;
+    const halfLeading = (lineHeight - emHeightPx) / 2;
+    const characters = resolvedText.split('');
+
+    let y = 0;
+    for (const lineIndices of layout.lines) {
+      let x = 0;
+      for (const charIdx of lineIndices) {
+        const char = characters[charIdx]!;
+        if (char === '\n') continue;
+        const entry = timeline.entries[charIdx]!;
+        const charWidth = layout.charWidths[charIdx] ?? 0;
+        const kerning = layout.kernings[charIdx] ?? 0;
+        const glyph = font.glyphData[char];
+
+        if (glyph && entry.hasSvg) {
+          const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
+          const glyphY = y + halfLeading;
+          drawGlyph(
+            ctx,
+            glyph,
+            {
+              x,
+              y: glyphY,
+              fontSize,
+              unitsPerEm: font.unitsPerEm,
+              ascender: font.ascender,
+              descender: font.descender,
+            },
+            localTime,
+            font.lineCap,
+            color,
+          );
+        }
+
+        x += (charWidth + kerning) * fontSize;
+      }
+      y += lineHeight;
+    }
+  }, [mode, currentTime, timeline, layout, font, fontSize, resolvedText, emHeight]);
+
   // --- Rendering ---
 
   if (!font || !resolvedText) {
@@ -493,16 +572,30 @@ export function TegakiRenderer({
           transition: 'font-size 0.001s',
         }}
       />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          fontFamily,
-        }}
-      >
-        {lineElements}
-      </div>
+      {mode === 'canvas' ? (
+        <canvas
+          ref={canvasRef}
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            fontFamily,
+          }}
+        >
+          {lineElements}
+        </div>
+      )}
 
       <div
         style={{

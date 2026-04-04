@@ -8,6 +8,7 @@
     "allowJs": true,
 
     "moduleResolution": "nodenext",
+    "customConditions": ["tegaki@dev"],
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,

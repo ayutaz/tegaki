@@ -38,7 +38,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "start": "bun src/cli/index.ts",
+    "start": "bun --conditions=tegaki@dev src/cli/index.ts",
     "compile": "bun build --compile --minify --outfile dist src/cli/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
