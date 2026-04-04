@@ -47,6 +47,7 @@
     "fonts/",
     "README.md",
     "LICENSE",
+    "FONTS-LICENSE.md",
     "CHANGELOG.md"
   ],
   "scripts": {

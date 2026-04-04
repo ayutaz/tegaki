@@ -57,6 +57,34 @@ The generator is a separate package, only needed at build time:
 npm install -D tegaki-generator
 ```
 
+## Built-in fonts
+
+Tegaki ships with pre-generated bundles for four Google Fonts, ready to use without running the generator:
+
+- **Caveat** — `tegaki/fonts/caveat`
+- **Italianno** — `tegaki/fonts/italianno`
+- **Tangerine** — `tegaki/fonts/tangerine`
+- **Parisienne** — `tegaki/fonts/parisienne`
+
+```tsx
+import { TegakiRenderer } from 'tegaki';
+import caveat from 'tegaki/fonts/caveat';
+
+await caveat.registerFontFace();
+
+function App() {
+  return (
+    <TegakiRenderer font={caveat} style={{ fontSize: '48px' }}>
+      Hello World
+    </TegakiRenderer>
+  );
+}
+```
+
+These bundles include all printable ASCII characters (letters, digits, punctuation). For other fonts, use the generator.
+
+All bundled fonts are licensed under the [SIL Open Font License](https://openfontlicense.org/). See [FONTS-LICENSE.md](packages/renderer/FONTS-LICENSE.md) for full attribution.
+
 ## `<TegakiRenderer>` props
 
 | Prop | Type | Default | Description |
