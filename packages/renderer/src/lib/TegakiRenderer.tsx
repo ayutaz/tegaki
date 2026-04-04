@@ -470,7 +470,7 @@ export function TegakiRenderer({
             font.lineCap,
             color,
           );
-        } else if (!entry.hasSvg && currentTime >= entry.offset) {
+        } else if (!entry.hasSvg && currentTime >= entry.offset + entry.duration) {
           ctx.save();
           ctx.font = `${fontSize}px ${fontFamily}`;
           ctx.fillStyle = color;
@@ -520,7 +520,7 @@ export function TegakiRenderer({
       );
     }
 
-    const isVisible = currentTime >= entry.offset;
+    const isVisible = currentTime >= entry.offset + entry.duration;
     return (
       <span style={{ fontFamily, visibility: isVisible ? 'visible' : 'hidden' }} key={charIdx}>
         {char}
