@@ -1,6 +1,15 @@
 import { layoutWithLines, prepareWithSegments } from '@chenglou/pretext';
-import { type ComponentProps, type CSSProperties, type ReactElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { twJoin } from 'tailwind-merge';
+import {
+  type ComponentProps,
+  type CSSProperties,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { TegakiBundle } from '../types.ts';
 
 const GLYPH_GAP = 0.1;
@@ -285,11 +294,39 @@ export function TegakiRenderer({
   // --- SVG refs ---
   const svgRefs = useRef(new Map<number, SVGSVGElement>());
 
+  // Stable ref callback factory — only stores/removes the node, no time sync
+  const makeSvgRef = useCallback(
+    (charIdx: number) => (node: SVGSVGElement | null) => {
+      if (node) {
+        node.pauseAnimations();
+        svgRefs.current.set(charIdx, node);
+      } else {
+        svgRefs.current.delete(charIdx);
+      }
+    },
+    [],
+  );
+
+  // Cache ref callbacks so React doesn't see a new function each render
+  const svgRefCallbacks = useRef(new Map<number, (node: SVGSVGElement | null) => void>());
+  const getSvgRef = useCallback(
+    (charIdx: number) => {
+      let cb = svgRefCallbacks.current.get(charIdx);
+      if (!cb) {
+        cb = makeSvgRef(charIdx);
+        svgRefCallbacks.current.set(charIdx, cb);
+      }
+      return cb;
+    },
+    [makeSvgRef],
+  );
+
   // Clear stale SVG refs when font changes so useLayoutEffect doesn't set time on old elements
   const prevFontRef = useRef(font);
   if (prevFontRef.current !== font) {
     prevFontRef.current = font;
     svgRefs.current.clear();
+    svgRefCallbacks.current.clear();
   }
 
   // --- Container size observation ---
@@ -306,13 +343,21 @@ export function TegakiRenderer({
     return () => ro.disconnect();
   }, []);
 
-  // Sync fontSize when CSS changes (className/style) without triggering a resize
-  useLayoutEffect(() => {
-    const el = rootRef.current;
+  // Sentinel element ref — a hidden child with `font-size: inherit` and a near-zero
+  // CSS transition. When any ancestor changes font-size, the transition fires an event
+  // so we can read the new value without polling getComputedStyle every render.
+  const sentinelRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
     if (!el) return;
-    const fs = Number.parseFloat(getComputedStyle(el).fontSize);
-    if (fs !== fontSize) setFontSize(fs);
-  });
+    const onTransition = (e: TransitionEvent) => {
+      if (e.propertyName === 'font-size') {
+        setFontSize(Number.parseFloat(getComputedStyle(el).fontSize));
+      }
+    };
+    el.addEventListener('transitionend', onTransition);
+    return () => el.removeEventListener('transitionend', onTransition);
+  }, []);
 
   // --- Text layout ---
   const layout = useMemo(() => {
@@ -320,15 +365,44 @@ export function TegakiRenderer({
     return computeTextLayout(resolvedText, fontFamily, fontSize, containerWidth);
   }, [resolvedText, fontFamily, fontSize, containerWidth]);
 
-  // --- Sync SVG current time before paint ---
+  // --- Sync only active SVGs before paint ---
+  const prevActiveRange = useRef<[number, number]>([-1, -1]);
   useLayoutEffect(() => {
-    for (let i = 0; i < timeline.entries.length; i++) {
-      const entry = timeline.entries[i]!;
+    const entries = timeline.entries;
+    if (entries.length === 0) return;
+
+    // Find the range of glyphs that need updating:
+    // - Previously active glyphs (may need to clamp to 0 or duration)
+    // - Currently active glyphs (in-progress animation)
+    const [prevStart, prevEnd] = prevActiveRange.current;
+
+    let activeStart = entries.length;
+    let activeEnd = -1;
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!;
+      if (!entry.hasSvg) continue;
+      const localTime = currentTime - entry.offset;
+      // Glyph is relevant if it's in progress or just finished
+      if (localTime >= 0 && localTime <= entry.duration + GLYPH_GAP) {
+        if (i < activeStart) activeStart = i;
+        activeEnd = i;
+      }
+    }
+
+    // Merge with previous range to catch glyphs that just became inactive
+    const syncStart = Math.min(activeStart, prevStart >= 0 ? prevStart : activeStart);
+    const syncEnd = Math.max(activeEnd, prevEnd >= 0 ? prevEnd : activeEnd);
+
+    for (let i = syncStart; i <= syncEnd; i++) {
+      const entry = entries[i]!;
       const svg = svgRefs.current.get(i);
       if (!svg || !entry.hasSvg) continue;
       const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
       svg.setCurrentTime(localTime);
     }
+
+    prevActiveRange.current = [activeStart, activeEnd];
   }, [currentTime, timeline]);
 
   // --- Rendering ---
@@ -360,16 +434,7 @@ export function TegakiRenderer({
     if (GlyphSvg) {
       content = (
         <GlyphSvg
-          ref={(node: SVGSVGElement | null) => {
-            if (node) {
-              node.pauseAnimations();
-              svgRefs.current.set(charIdx, node);
-              const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
-              node.setCurrentTime(localTime);
-            } else {
-              svgRefs.current.delete(charIdx);
-            }
-          }}
+          ref={getSvgRef(charIdx)}
           style={{
             display: 'block',
             width: '100%',
@@ -406,24 +471,46 @@ export function TegakiRenderer({
     <div
       ref={rootRef}
       {...props}
-      className={twJoin('relative grid', props.className)}
       style={{
         ...props.style,
+        position: 'relative',
         maxWidth: '100%',
         width: 'auto',
         height: 'auto',
       }}
     >
-      <div className="[grid-area:1/1] absolute inset-0 pointer-events-none" style={{ fontFamily }}>
+      {/* Sentinel: inherits font-size, fires transitionend when it changes */}
+      <span
+        ref={sentinelRef}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          width: 0,
+          height: 0,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+          fontSize: 'inherit',
+          transition: 'font-size 0.001s',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          fontFamily,
+        }}
+      >
         {lineElements}
       </div>
 
       <div
-        className={twJoin(
-          '[grid-area:1/1] select-auto whitespace-pre-wrap wrap-break-word pr-[1px]',
-          !showOverlay && '[-webkit-text-fill-color:transparent]',
-        )}
         style={{
+          userSelect: 'auto',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'break-word',
+          paddingRight: 1,
+          WebkitTextFillColor: showOverlay ? undefined : 'transparent',
           fontFamily,
           color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
           fontFeatureSettings: "'calt' 0, 'liga' 0",

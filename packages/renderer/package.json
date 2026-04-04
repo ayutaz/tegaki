@@ -49,8 +49,7 @@
     "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.4",
-    "tailwind-merge": "^3.5.0"
+    "@chenglou/pretext": "^0.0.4"
   },
   "peerDependencies": {
     "react": ">=18"
