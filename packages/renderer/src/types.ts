@@ -70,8 +70,11 @@ export interface TegakiGlyphData {
 
 type BaseEffectConfig = { enabled?: boolean };
 
+/** A length value: plain number is pixels, string `"${number}em"` is relative to font size. */
+export type CSSLength = number | `${number}em`;
+
 export type TegakiEffectConfigs = {
-  glow: BaseEffectConfig & { radius?: number; color?: string };
+  glow: BaseEffectConfig & { radius?: CSSLength; color?: string };
   wobble: BaseEffectConfig & { amplitude?: number; frequency?: number };
   pressureWidth: BaseEffectConfig & { strength?: number };
   rainbow: BaseEffectConfig & { saturation?: number; lightness?: number };
@@ -80,7 +83,7 @@ export type TegakiEffectConfigs = {
 export type TegakiEffectName = keyof TegakiEffectConfigs;
 
 /** Effects that can only appear once (cannot be used with custom keys). */
-export type TegakiSingletonEffectName = 'pressureWidth';
+export type TegakiSingletonEffectName = 'pressureWidth' | 'wobble' | 'rainbow';
 
 /** Effects that can be duplicated with custom keys. */
 export type TegakiMultiEffectName = Exclude<TegakiEffectName, TegakiSingletonEffectName>;

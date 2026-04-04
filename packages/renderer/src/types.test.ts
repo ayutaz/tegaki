@@ -60,6 +60,10 @@ describe.skip('TegakiEffects', () => {
   test('singleton effect cannot be used with custom key', () => {
     // @ts-expect-error — pressureWidth is singleton, cannot be duplicated via custom key
     assertType({ myPressure: { effect: 'pressureWidth', strength: 0.5 } });
+    // @ts-expect-error — wobble is singleton, cannot be duplicated via custom key
+    assertType({ myWobble: { effect: 'wobble', amplitude: 2 } });
+    // @ts-expect-error — rainbow is singleton, cannot be duplicated via custom key
+    assertType({ myRainbow: { effect: 'rainbow', saturation: 80 } });
   });
 
   test('singleton effect works with its own key', () => {

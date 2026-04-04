@@ -1,4 +1,12 @@
+import type { CSSLength } from '../types.ts';
+
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** Resolve a CSSLength to pixels. Plain numbers are px, `"Nem"` is N * fontSize. */
+export function resolveCSSLength(value: CSSLength, fontSize: number): number {
+  if (typeof value === 'number') return value;
+  return parseFloat(value) * fontSize;
+}
 
 export function graphemes(text: string): string[] {
   return Array.from(segmenter.segment(text), (s) => s.segment);

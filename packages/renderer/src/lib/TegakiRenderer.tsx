@@ -1,5 +1,6 @@
 import { type ComponentProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TegakiBundle, TegakiEffects } from '../types.ts';
+import { drawFallbackGlyph } from './drawFallbackGlyph.ts';
 import { drawGlyph } from './drawGlyph.ts';
 import { resolveEffects } from './effects.ts';
 import { computeTextLayout } from './textLayout.ts';
@@ -88,6 +89,10 @@ export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string,
   /** Visual effects applied during canvas rendering. */
   effects?: E;
 
+  /** Maximum segment size in pixels for effect subdivision. Lower values produce
+   * smoother effects but cost more to render. Default: `2` */
+  segmentSize?: number;
+
   /** Show debug text overlay. */
   showOverlay?: boolean;
 }
@@ -102,6 +107,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   onComplete,
   mode = 'svg',
   effects,
+  segmentSize,
   showOverlay,
   ...props
 }: TegakiRendererProps<E>) {
@@ -380,15 +386,11 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
             color,
             resolvedEffects,
             seed + charIdx,
+            segmentSize,
           );
         } else if (!entry.hasSvg && currentTime >= entry.offset + entry.duration) {
-          ctx.save();
-          ctx.font = `${fontSize}px ${fontFamily}`;
-          ctx.fillStyle = color;
-          ctx.textBaseline = 'alphabetic';
           const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
-          ctx.fillText(char, x, baseline);
-          ctx.restore();
+          drawFallbackGlyph(ctx, char, x, baseline, fontSize, fontFamily!, color, resolvedEffects, seed + charIdx);
         }
 
         x += (charWidth + kerning) * fontSize;
@@ -410,6 +412,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     padV,
     resolvedEffects,
     seed,
+    segmentSize,
   ]);
 
   // --- Rendering ---

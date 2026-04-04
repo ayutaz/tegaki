@@ -16,7 +16,16 @@ import {
   STROKE_COLORS,
   type VisualizationStage,
 } from 'tegaki-generator';
-import { DEFAULT_EFFECTS_STATE, type EffectsState, parseUrlState, type RenderMode, syncUrlState, type TimeMode } from './url-state.ts';
+import {
+  type CustomEffect,
+  DEFAULT_EFFECTS_STATE,
+  EFFECT_DEFAULTS,
+  type EffectsState,
+  parseUrlState,
+  type RenderMode,
+  syncUrlState,
+  type TimeMode,
+} from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';
 
@@ -80,6 +89,8 @@ export function PreviewApp() {
   const [timeMode, setTimeMode] = useState<TimeMode>(initialUrlState.timeMode);
   const [loop, setLoop] = useState(initialUrlState.loop);
   const [effectsState, setEffectsState] = useState<EffectsState>(initialUrlState.effectsState);
+  const [customEffects, setCustomEffects] = useState<CustomEffect[]>(initialUrlState.customEffects);
+  const [segmentSize, setSegmentSize] = useState(initialUrlState.segmentSize);
 
   // Animation state (lifted up so controls live outside the canvas area)
   const [animPlaying, setAnimPlaying] = useState(true);
@@ -231,6 +242,8 @@ export function PreviewApp() {
         timeMode,
         loop,
         effectsState,
+        customEffects,
+        segmentSize,
       });
     }, 300);
     return () => clearTimeout(syncTimerRef.current);
@@ -250,6 +263,8 @@ export function PreviewApp() {
     timeMode,
     loop,
     effectsState,
+    customEffects,
+    segmentSize,
   ]);
 
   // Auto-load font on mount (from URL state or default)
@@ -713,6 +728,10 @@ export function PreviewApp() {
             onLoopChange={setLoop}
             effectsState={effectsState}
             onEffectsStateChange={setEffectsState}
+            customEffects={customEffects}
+            onCustomEffectsChange={setCustomEffects}
+            segmentSize={segmentSize}
+            onSegmentSizeChange={setSegmentSize}
           />
         )}
       </main>
@@ -997,6 +1016,10 @@ function TextPreview({
   onLoopChange: setLoop,
   effectsState,
   onEffectsStateChange,
+  customEffects,
+  onCustomEffectsChange,
+  segmentSize,
+  onSegmentSizeChange,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -1020,6 +1043,10 @@ function TextPreview({
   onLoopChange: (v: boolean) => void;
   effectsState: EffectsState;
   onEffectsStateChange: (v: EffectsState) => void;
+  customEffects: CustomEffect[];
+  onCustomEffectsChange: (v: CustomEffect[]) => void;
+  segmentSize: number;
+  onSegmentSizeChange: (v: number) => void;
 }) {
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
@@ -1032,6 +1059,28 @@ function TextPreview({
     [effectsState, onEffectsStateChange],
   );
 
+  const addCustomEffect = useCallback(
+    (effect: CustomEffect['effect']) => {
+      // Find next available key: glow1, glow2, etc.
+      const existing = customEffects.filter((e) => e.effect === effect);
+      let n = existing.length + 1;
+      while (customEffects.some((e) => e.key === `${effect}${n}`)) n++;
+      onCustomEffectsChange([...customEffects, { key: `${effect}${n}`, effect, enabled: true, config: { ...EFFECT_DEFAULTS[effect] } }]);
+    },
+    [customEffects, onCustomEffectsChange],
+  );
+
+  const removeCustomEffect = useCallback(
+    (key: string) => onCustomEffectsChange(customEffects.filter((e) => e.key !== key)),
+    [customEffects, onCustomEffectsChange],
+  );
+
+  const updateCustomEffect = useCallback(
+    (key: string, update: Partial<CustomEffect>) =>
+      onCustomEffectsChange(customEffects.map((e) => (e.key === key ? { ...e, ...update } : e))),
+    [customEffects, onCustomEffectsChange],
+  );
+
   const effects = useMemo(() => {
     const result: Record<string, any> = {};
     if (effectsState.glow.enabled) result.glow = { radius: effectsState.glow.radius, color: effectsState.glow.color };
@@ -1039,8 +1088,11 @@ function TextPreview({
     if (effectsState.pressureWidth.enabled) result.pressureWidth = { strength: effectsState.pressureWidth.strength };
     if (effectsState.rainbow.enabled)
       result.rainbow = { saturation: effectsState.rainbow.saturation, lightness: effectsState.rainbow.lightness };
+    for (const custom of customEffects) {
+      if (custom.enabled) result[custom.key] = { effect: custom.effect, ...custom.config };
+    }
     return Object.keys(result).length > 0 ? result : undefined;
-  }, [effectsState]);
+  }, [effectsState, customEffects]);
 
   // Synchronous font change detection — reset all font-dependent state BEFORE rendering
   // so TegakiRenderer never sees stale fontReady, displayTime, or glyph components.
@@ -1259,6 +1311,7 @@ function TextPreview({
                 mode={renderMode}
                 showOverlay={showOverlay}
                 effects={effects}
+                segmentSize={segmentSize}
               />
             )}
           </div>
@@ -1299,7 +1352,10 @@ function TextPreview({
                   <button
                     type="button"
                     className="px-2 py-0.5 text-xs rounded cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600"
-                    onClick={() => onEffectsStateChange(DEFAULT_EFFECTS_STATE)}
+                    onClick={() => {
+                      onEffectsStateChange(DEFAULT_EFFECTS_STATE);
+                      onCustomEffectsChange([]);
+                    }}
                     title="Reset all effects"
                   >
                     Reset
@@ -1319,14 +1375,24 @@ function TextPreview({
             <div className="p-3 flex flex-col gap-4">
               {/* Glow */}
               <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={effectsState.glow.enabled}
-                    onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, enabled: e.target.checked } }))}
-                  />
-                  Glow
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={effectsState.glow.enabled}
+                      onChange={(e) => updateEffect((s) => ({ ...s, glow: { ...s.glow, enabled: e.target.checked } }))}
+                    />
+                    Glow
+                  </label>
+                  <button
+                    type="button"
+                    className="text-gray-400 hover:text-gray-600 text-xs cursor-pointer px-1"
+                    onClick={() => addCustomEffect('glow')}
+                    title="Add another glow"
+                  >
+                    +
+                  </button>
+                </div>
                 {effectsState.glow.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <label className="flex items-center justify-between text-[11px] text-gray-500">
@@ -1355,6 +1421,25 @@ function TextPreview({
                     </label>
                   </div>
                 )}
+                {customEffects
+                  .filter((e) => e.effect === 'glow')
+                  .map((ce) => (
+                    <CustomEffectControls key={ce.key} entry={ce} onUpdate={updateCustomEffect} onRemove={removeCustomEffect}>
+                      <EffectSlider
+                        label="Radius"
+                        value={ce.config.radius as number}
+                        min={1}
+                        max={30}
+                        step={1}
+                        onChange={(v) => updateCustomEffect(ce.key, { config: { ...ce.config, radius: v } })}
+                      />
+                      <EffectColor
+                        label="Color"
+                        value={(ce.config.color as string) ?? '#00ccff'}
+                        onChange={(v) => updateCustomEffect(ce.key, { config: { ...ce.config, color: v } })}
+                      />
+                    </CustomEffectControls>
+                  ))}
               </div>
 
               {/* Wobble */}
@@ -1416,7 +1501,7 @@ function TextPreview({
                 {effectsState.pressureWidth.enabled && (
                   <div className="flex flex-col gap-1.5 pl-5">
                     <label className="flex items-center justify-between text-[11px] text-gray-500">
-                      Amount
+                      Strength
                       <span className="flex items-center gap-1">
                         <input
                           type="range"
@@ -1483,6 +1568,25 @@ function TextPreview({
                     </label>
                   </div>
                 )}
+              </div>
+
+              {/* Segment size */}
+              <div className="border-t border-gray-200 pt-3">
+                <label className="flex items-center justify-between text-xs text-gray-600">
+                  Segment size
+                  <span className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      className="w-24"
+                      min={0.5}
+                      max={10}
+                      step={0.5}
+                      value={segmentSize}
+                      onChange={(e) => onSegmentSizeChange(Number(e.target.value))}
+                    />
+                    <span className="tabular-nums w-7 text-right text-gray-400">{segmentSize}px</span>
+                  </span>
+                </label>
               </div>
             </div>
           </aside>
@@ -1684,6 +1788,91 @@ function ResetButton({ visible, onClick }: { visible: boolean; onClick: () => vo
     >
       {'\u21A9'}
     </button>
+  );
+}
+
+function CustomEffectControls({
+  entry,
+  onUpdate,
+  onRemove,
+  children,
+}: {
+  entry: CustomEffect;
+  onUpdate: (key: string, update: Partial<CustomEffect>) => void;
+  onRemove: (key: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-l-2 border-gray-200 pl-3 ml-1">
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-1.5 text-xs font-medium text-gray-500 cursor-pointer">
+          <input type="checkbox" checked={entry.enabled} onChange={(e) => onUpdate(entry.key, { enabled: e.target.checked })} />
+          {entry.key}
+        </label>
+        <button
+          type="button"
+          className="text-gray-400 hover:text-red-500 text-xs cursor-pointer px-1"
+          onClick={() => onRemove(entry.key)}
+          title={`Remove ${entry.key}`}
+        >
+          {'\u2212'}
+        </button>
+      </div>
+      {entry.enabled && <div className="flex flex-col gap-1.5 pl-5">{children}</div>}
+    </div>
+  );
+}
+
+function EffectSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between text-[11px] text-gray-500">
+      {label}
+      <span className="flex items-center gap-1">
+        <input
+          type="range"
+          className="w-24"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <span className="tabular-nums w-7 text-right">
+          {value}
+          {suffix}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function EffectColor({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center justify-between text-[11px] text-gray-500">
+      {label}
+      <input
+        type="color"
+        className="w-6 h-5 rounded border border-gray-300 cursor-pointer"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }
 

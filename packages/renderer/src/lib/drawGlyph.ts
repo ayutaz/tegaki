@@ -1,5 +1,6 @@
 import type { LineCap, TegakiGlyphData } from '../types.ts';
 import { findEffect, findEffects, type ResolvedEffect } from './effects.ts';
+import { resolveCSSLength } from './utils.ts';
 
 interface GlyphPosition {
   /** X offset in CSS pixels */
@@ -29,6 +30,7 @@ export function drawGlyph(
   color: string,
   effects: ResolvedEffect[] = [],
   seed = 0,
+  segmentSize?: number,
 ) {
   const scale = pos.fontSize / pos.unitsPerEm;
   const ox = pos.x;
@@ -91,7 +93,7 @@ export function drawGlyph(
       // Glow passes for dots
       for (const glow of glowEffects) {
         ctx.save();
-        ctx.shadowBlur = (glow.config.radius ?? 8) * scale;
+        ctx.shadowBlur = resolveCSSLength(glow.config.radius ?? 8, pos.fontSize);
         ctx.shadowColor = glow.config.color ?? color;
         ctx.fillStyle = glow.config.color ?? color;
         ctx.beginPath();
@@ -180,10 +182,14 @@ export function drawGlyph(
 
     if (segments.length === 0) continue;
 
+    // Keep coarse segments for glow (shadowBlur is expensive per draw call)
+    const coarseSegments = segments.slice();
+
     // --- Subdivide long segments for smooth effect transitions ---
-    const needsSubdivision = pressureAmount > 0 || rainbowEffects.length > 0 || !!wobbleEffect;
-    if (needsSubdivision) {
-      const maxSegLen = 2 * scale; // max ~2px per subsegment
+    const effectsNeedSubdivision = pressureAmount > 0 || rainbowEffects.length > 0 || !!wobbleEffect;
+    const resolvedSegmentSize = segmentSize ?? (effectsNeedSubdivision ? 2 : undefined);
+    if (resolvedSegmentSize != null) {
+      const maxSegLen = resolvedSegmentSize * scale;
       const subdivided: typeof segments = [];
       for (const seg of segments) {
         const dx = seg.x1 - seg.x0;
@@ -252,13 +258,19 @@ export function drawGlyph(
     ctx.lineCap = lineCap;
     ctx.lineJoin = 'round';
 
-    // --- Glow passes ---
+    // --- Glow passes (use coarse segments to avoid expensive per-subsegment shadowBlur) ---
     for (const glow of glowEffects) {
       ctx.save();
-      ctx.shadowBlur = (glow.config.radius ?? 8) * scale;
+      ctx.shadowBlur = resolveCSSLength(glow.config.radius ?? 8, pos.fontSize);
       ctx.shadowColor = glow.config.color ?? color;
       ctx.strokeStyle = glow.config.color ?? color;
-      drawStrokePath();
+      ctx.lineWidth = baseLineWidth;
+      ctx.beginPath();
+      ctx.moveTo(coarseSegments[0]!.x0, coarseSegments[0]!.y0);
+      for (const seg of coarseSegments) {
+        ctx.lineTo(seg.x1, seg.y1);
+      }
+      ctx.stroke();
       ctx.restore();
     }
 

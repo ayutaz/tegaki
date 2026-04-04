@@ -1,4 +1,4 @@
-import type { TegakiEffectConfigs } from 'tegaki';
+import type { TegakiEffectConfigs, TegakiMultiEffectName } from 'tegaki';
 import { DEFAULT_CHARS, DEFAULT_OPTIONS, type PipelineOptions } from 'tegaki-generator';
 
 type Stage =
@@ -30,6 +30,19 @@ export const DEFAULT_EFFECTS_STATE: EffectsState = {
   rainbow: { enabled: false, saturation: 80, lightness: 55 },
 };
 
+/** A duplicated (custom-keyed) effect instance. */
+export interface CustomEffect {
+  key: string;
+  effect: TegakiMultiEffectName;
+  enabled: boolean;
+  config: Record<string, number | string>;
+}
+
+/** Default configs for creating new custom effect instances. */
+export const EFFECT_DEFAULTS: Record<TegakiMultiEffectName, Record<string, number | string>> = {
+  glow: { radius: 8, color: '#00ccff' },
+};
+
 export interface UrlState {
   fontFamily: string;
   chars: string;
@@ -47,6 +60,8 @@ export interface UrlState {
   timeMode: TimeMode;
   loop: boolean;
   effectsState: EffectsState;
+  customEffects: CustomEffect[];
+  segmentSize: number;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -65,6 +80,8 @@ export const URL_DEFAULTS: UrlState = {
   timeMode: 'controlled',
   loop: false,
   effectsState: DEFAULT_EFFECTS_STATE,
+  customEffects: [],
+  segmentSize: 2,
 };
 
 // Short keys for compact URLs — only non-default values are written
@@ -114,6 +131,12 @@ export function parseUrlState(): UrlState {
       state.effectsState = { ...DEFAULT_EFFECTS_STATE, ...JSON.parse(p.get('fx')!) };
     } catch {}
   }
+  if (p.has('cx')) {
+    try {
+      state.customEffects = JSON.parse(p.get('cx')!);
+    } catch {}
+  }
+  if (p.has('ss')) state.segmentSize = Number(p.get('ss'));
 
   // Pipeline options — read short keys
   for (const [short, long] of Object.entries(REVERSE_OPTION_KEYS)) {
@@ -150,6 +173,10 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (JSON.stringify(state.effectsState) !== JSON.stringify(DEFAULT_EFFECTS_STATE)) {
     p.set('fx', JSON.stringify(state.effectsState));
   }
+  if (state.customEffects.length > 0) {
+    p.set('cx', JSON.stringify(state.customEffects));
+  }
+  if (state.segmentSize !== URL_DEFAULTS.segmentSize) p.set('ss', String(state.segmentSize));
 
   // Pipeline options — only non-defaults
   for (const [long, short] of Object.entries(OPTION_KEYS)) {
