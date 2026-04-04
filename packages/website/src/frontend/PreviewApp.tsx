@@ -74,6 +74,7 @@ export function PreviewApp() {
   const [previewText, setPreviewText] = useState(initialUrlState.previewText);
   const [animSpeed, setAnimSpeed] = useState(initialUrlState.animSpeed);
   const [fontSizePx, setFontSizePx] = useState(initialUrlState.fontSizePx);
+  const [lineHeightRatio, setLineHeightRatio] = useState(initialUrlState.lineHeightRatio);
   const [showOverlay, setShowOverlay] = useState(initialUrlState.showOverlay);
   const [renderMode, setRenderMode] = useState<RenderMode>(initialUrlState.renderMode);
 
@@ -210,12 +211,26 @@ export function PreviewApp() {
         options,
         animSpeed,
         fontSizePx,
+        lineHeightRatio,
         showOverlay,
         renderMode,
       });
     }, 300);
     return () => clearTimeout(syncTimerRef.current);
-  }, [fontFamily, chars, selectedChar, activeStage, previewMode, previewText, options, animSpeed, fontSizePx, showOverlay, renderMode]);
+  }, [
+    fontFamily,
+    chars,
+    selectedChar,
+    activeStage,
+    previewMode,
+    previewText,
+    options,
+    animSpeed,
+    fontSizePx,
+    lineHeightRatio,
+    showOverlay,
+    renderMode,
+  ]);
 
   // Auto-load font on mount (from URL state or default)
   const mountedRef = useRef(false);
@@ -640,6 +655,8 @@ export function PreviewApp() {
             onAnimSpeedChange={setAnimSpeed}
             fontSizePx={fontSizePx}
             onFontSizePxChange={setFontSizePx}
+            lineHeightRatio={lineHeightRatio}
+            onLineHeightRatioChange={setLineHeightRatio}
             showOverlay={showOverlay}
             onShowOverlayChange={setShowOverlay}
             renderMode={renderMode}
@@ -916,6 +933,8 @@ function TextPreview({
   onAnimSpeedChange,
   fontSizePx,
   onFontSizePxChange,
+  lineHeightRatio,
+  onLineHeightRatioChange,
   showOverlay,
   onShowOverlayChange,
   renderMode,
@@ -931,6 +950,8 @@ function TextPreview({
   onAnimSpeedChange: (v: number) => void;
   fontSizePx: number;
   onFontSizePxChange: (v: number) => void;
+  lineHeightRatio: number;
+  onLineHeightRatioChange: (v: number) => void;
   showOverlay: boolean;
   onShowOverlayChange: (v: boolean) => void;
   renderMode: RenderMode;
@@ -1114,7 +1135,7 @@ function TextPreview({
         {fontBundle && fontReady && (
           <TegakiRenderer
             className="w-full max-w-2xl"
-            style={{ fontSize: `${fontSizePx}px` }}
+            style={{ fontSize: `${fontSizePx}px`, lineHeight: lineHeightRatio }}
             text={text}
             time={displayTime}
             font={fontBundle}
@@ -1125,97 +1146,117 @@ function TextPreview({
       </div>
 
       {/* Playback controls */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-t border-gray-200 bg-white">
-        <button
-          type="button"
-          className="px-3 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-100"
-          onClick={() => {
-            if (timeRef.current >= timeline.totalDuration) {
+      <div className="border-t border-gray-200 bg-white px-3 py-1.5 flex flex-col gap-1.5">
+        {/* Row 1: playback */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="px-3 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-100"
+            onClick={() => {
+              if (timeRef.current >= timeline.totalDuration) {
+                timeRef.current = 0;
+                setDisplayTime(0);
+              }
+              setPlaying(!playing);
+            }}
+          >
+            {playing ? 'Pause' : 'Play'}
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-100"
+            onClick={() => {
               timeRef.current = 0;
               setDisplayTime(0);
-            }
-            setPlaying(!playing);
-          }}
-        >
-          {playing ? 'Pause' : 'Play'}
-        </button>
-        <button
-          type="button"
-          className="px-3 py-1 border border-gray-300 rounded text-sm cursor-pointer hover:bg-gray-100"
-          onClick={() => {
-            timeRef.current = 0;
-            setDisplayTime(0);
-            setPlaying(false);
-          }}
-        >
-          Reset
-        </button>
-        <span className="text-xs tabular-nums text-gray-500 w-24">
-          {displayTime.toFixed(2)}s / {timeline.totalDuration.toFixed(2)}s
-        </span>
-        <input
-          type="range"
-          className="flex-1 max-w-64"
-          min={0}
-          max={timeline.totalDuration}
-          step={0.01}
-          value={displayTime}
-          onChange={(e) => {
-            const t = Number(e.target.value);
-            timeRef.current = t;
-            setDisplayTime(t);
-            setPlaying(false);
-          }}
-        />
-
-        <span className="border-l border-gray-200 h-6" />
-
-        <label className="flex items-center gap-1.5 text-xs text-gray-600">
-          Speed
-          <input
-            type="range"
-            className="w-20"
-            min={0.1}
-            max={5}
-            step={0.1}
-            value={animSpeed}
-            onChange={(e) => onAnimSpeedChange(Number(e.target.value))}
-          />
-          <span className="tabular-nums text-gray-400 w-8">{animSpeed}x</span>
-        </label>
-
-        <label className="flex items-center gap-1.5 text-xs text-gray-600">
-          Size
-          <input
-            type="range"
-            className="w-20"
-            min={16}
-            max={256}
-            step={1}
-            value={fontSizePx}
-            onChange={(e) => onFontSizePxChange(Number(e.target.value))}
-          />
-          <span className="tabular-nums text-gray-400 w-10">{fontSizePx}px</span>
-        </label>
-
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-          <input type="checkbox" checked={showOverlay} onChange={(e) => onShowOverlayChange(e.target.checked)} />
-          Overlay
-        </label>
-
-        <span className="border-l border-gray-200 h-6" />
-
-        <label className="flex items-center gap-1.5 text-xs text-gray-600">
-          Render
-          <select
-            className="px-1.5 py-0.5 border border-gray-300 rounded text-xs bg-white"
-            value={renderMode}
-            onChange={(e) => onRenderModeChange(e.target.value as RenderMode)}
+              setPlaying(false);
+            }}
           >
-            <option value="svg">SVG</option>
-            <option value="canvas">Canvas</option>
-          </select>
-        </label>
+            Reset
+          </button>
+          <span className="text-xs tabular-nums text-gray-500 w-24">
+            {displayTime.toFixed(2)}s / {timeline.totalDuration.toFixed(2)}s
+          </span>
+          <input
+            type="range"
+            className="flex-1 max-w-64"
+            min={0}
+            max={timeline.totalDuration}
+            step={0.01}
+            value={displayTime}
+            onChange={(e) => {
+              const t = Number(e.target.value);
+              timeRef.current = t;
+              setDisplayTime(t);
+              setPlaying(false);
+            }}
+          />
+
+          <span className="border-l border-gray-200 h-6" />
+
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Speed
+            <input
+              type="range"
+              className="w-20"
+              min={0.1}
+              max={5}
+              step={0.1}
+              value={animSpeed}
+              onChange={(e) => onAnimSpeedChange(Number(e.target.value))}
+            />
+            <span className="tabular-nums text-gray-400 w-8">{animSpeed}x</span>
+          </label>
+        </div>
+
+        {/* Row 2: display settings */}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Size
+            <input
+              type="range"
+              className="w-20"
+              min={16}
+              max={256}
+              step={1}
+              value={fontSizePx}
+              onChange={(e) => onFontSizePxChange(Number(e.target.value))}
+            />
+            <span className="tabular-nums text-gray-400 w-10">{fontSizePx}px</span>
+          </label>
+
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Line height
+            <input
+              type="range"
+              className="w-20"
+              min={0.5}
+              max={3}
+              step={0.1}
+              value={lineHeightRatio}
+              onChange={(e) => onLineHeightRatioChange(Number(e.target.value))}
+            />
+            <span className="tabular-nums text-gray-400 w-8">{lineHeightRatio}</span>
+          </label>
+
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={showOverlay} onChange={(e) => onShowOverlayChange(e.target.checked)} />
+            Overlay
+          </label>
+
+          <span className="border-l border-gray-200 h-6" />
+
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Render
+            <select
+              className="px-1.5 py-0.5 border border-gray-300 rounded text-xs bg-white"
+              value={renderMode}
+              onChange={(e) => onRenderModeChange(e.target.value as RenderMode)}
+            >
+              <option value="svg">SVG</option>
+              <option value="canvas">Canvas</option>
+            </select>
+          </label>
+        </div>
       </div>
     </div>
   );

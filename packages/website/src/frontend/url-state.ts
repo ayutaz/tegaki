@@ -28,6 +28,7 @@ export interface UrlState {
   // Text preview settings
   animSpeed: number;
   fontSizePx: number;
+  lineHeightRatio: number;
   showOverlay: boolean;
   renderMode: RenderMode;
 }
@@ -42,6 +43,7 @@ export const URL_DEFAULTS: UrlState = {
   options: DEFAULT_OPTIONS,
   animSpeed: 1,
   fontSizePx: 128,
+  lineHeightRatio: 1.5,
   showOverlay: false,
   renderMode: 'svg',
 };
@@ -83,6 +85,7 @@ export function parseUrlState(): UrlState {
   if (p.has('t')) state.previewText = p.get('t')!;
   if (p.has('as')) state.animSpeed = Number(p.get('as'));
   if (p.has('fs')) state.fontSizePx = Number(p.get('fs'));
+  if (p.has('lh')) state.lineHeightRatio = Number(p.get('lh'));
   if (p.has('ol')) state.showOverlay = p.get('ol') === '1';
   if (p.has('rm')) state.renderMode = p.get('rm') as RenderMode;
 
@@ -113,6 +116,7 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.previewText !== URL_DEFAULTS.previewText) p.set('t', state.previewText);
   if (state.animSpeed !== URL_DEFAULTS.animSpeed) p.set('as', String(state.animSpeed));
   if (state.fontSizePx !== URL_DEFAULTS.fontSizePx) p.set('fs', String(state.fontSizePx));
+  if (state.lineHeightRatio !== URL_DEFAULTS.lineHeightRatio) p.set('lh', String(state.lineHeightRatio));
   if (state.showOverlay !== URL_DEFAULTS.showOverlay) p.set('ol', '1');
   if (state.renderMode !== URL_DEFAULTS.renderMode) p.set('rm', state.renderMode);
 

@@ -519,7 +519,7 @@ export function TegakiRenderer({
     ? layout.lines.map((lineIndices, lineIdx) => {
         const isEmpty = lineIndices.every((i) => characters[i] === '\n');
         return (
-          <div style={{ whiteSpace: 'nowrap', height: isEmpty ? '1lh' : undefined }} key={lineIdx}>
+          <div style={{ whiteSpace: 'nowrap', height: isEmpty ? '1lh' : undefined, lineHeight: `${lineHeight}px` }} key={lineIdx}>
             {lineIndices.map(renderGlyph)}
           </div>
         );
@@ -539,21 +539,23 @@ export function TegakiRenderer({
         height: 'auto',
       }}
     >
-      {/* Sentinel: inherits font-size, fires transitionend when it changes */}
+      {/* Sentinel: inherits font-size & line-height; its height changes when either changes */}
       <span
         ref={sentinelRef}
         aria-hidden
         style={{
           position: 'absolute',
           width: 0,
-          height: 0,
           overflow: 'hidden',
           pointerEvents: 'none',
           fontSize: 'inherit',
           lineHeight: 'inherit',
+          visibility: 'hidden',
           transition: 'font-size 0.001s, line-height 0.001s',
         }}
-      />
+      >
+        {'\u00A0'}
+      </span>
       {mode === 'canvas' ? (
         <canvas
           ref={canvasRef}
