@@ -1,3 +1,6 @@
+import { zipSync } from 'fflate';
+import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { computeTimeline, type LineCap, type TegakiBundle, TegakiRenderer } from 'tegaki';
 import {
   type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
@@ -12,10 +15,7 @@ import {
   renderStage,
   STROKE_COLORS,
   type VisualizationStage,
-} from '@tegaki/generator';
-import { zipSync } from 'fflate';
-import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { computeTimeline, type LineCap, type TegakiBundle, TegakiRenderer } from 'tegaki';
+} from 'tegaki-generator';
 import { parseUrlState, syncUrlState } from './url-state.ts';
 
 type PreviewMode = 'glyph' | 'text';

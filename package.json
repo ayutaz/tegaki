@@ -1,15 +1,15 @@
 {
-  "name": "@tegaki/monorepo",
+  "name": "tegaki-monorepo",
   "private": true,
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "start": "bun --filter @tegaki/generator start",
-    "dev": "bun --filter @tegaki/website dev",
-    "serve": "bun --filter @tegaki/website serve",
-    "compile": "bun --filter @tegaki/generator compile",
+    "start": "bun --filter tegaki-generator start",
+    "dev": "bun --filter tegaki-website dev",
+    "serve": "bun --filter tegaki-website serve",
+    "compile": "bun --filter tegaki-generator compile",
     "test": "bun --filter '*' test",
     "typecheck": "bun --filter '*' typecheck",
     "lint": "biome lint",

@@ -1,4 +1,4 @@
-import { DEFAULT_CHARS, DEFAULT_OPTIONS, type PipelineOptions } from '@tegaki/generator';
+import { DEFAULT_CHARS, DEFAULT_OPTIONS, type PipelineOptions } from 'tegaki-generator';
 
 type Stage =
   | 'outline'

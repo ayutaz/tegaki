@@ -21,7 +21,7 @@
 **1. Generate** a font bundle from any Google Font (or a local `.ttf`):
 
 ```bash
-npx @tegaki/generator generate "Caveat"
+npx tegaki-generator generate "Caveat"
 ```
 
 Each glyph is run through a processing pipeline — flatten bezier curves, rasterize, skeletonize via Zhang-Suen thinning, trace polylines, compute stroke widths via distance transform, determine stroke order — and the result is a set of animated SVGs with timing data.
@@ -54,7 +54,7 @@ npm install tegaki
 The generator is a separate package, only needed at build time:
 
 ```bash
-npm install -D @tegaki/generator
+npm install -D tegaki-generator
 ```
 
 ## `<TegakiRenderer>` props
@@ -104,7 +104,7 @@ const { entries, totalDuration } = computeTimeline('Hello', font);
 ## Generating font bundles
 
 ```bash
-npx @tegaki/generator generate [family] [options]
+npx tegaki-generator generate [family] [options]
 ```
 
 | Option | Description | Default |
@@ -153,7 +153,7 @@ Font file
 | Package | npm | Description |
 |---------|-----|-------------|
 | [`tegaki`](packages/renderer) | [![npm](https://img.shields.io/npm/v/tegaki)](https://www.npmjs.com/package/tegaki) | React component for animated handwriting |
-| [`@tegaki/generator`](packages/generator) | [![npm](https://img.shields.io/npm/v/@tegaki/generator)](https://www.npmjs.com/package/@tegaki/generator) | CLI that generates font bundles |
+| [`tegaki-generator`](packages/generator) | [![npm](https://img.shields.io/npm/v/tegaki-generator)](https://www.npmjs.com/package/tegaki-generator) | CLI that generates font bundles |
 | [`@tegaki/website`](packages/website) | — | Interactive preview app |
 
 ## Contributing

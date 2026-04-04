@@ -15,7 +15,7 @@ Monorepo for generating and rendering handwriting animations from Google Fonts.
 ## Packages
 
 - `packages/renderer` (`tegaki`) — Published npm package. React component for rendering animated handwriting.
-- `packages/generator` (`@tegaki/generator`) — CLI tool that generates glyph data from fonts.
+- `packages/generator` (`tegaki-generator`) — CLI tool that generates glyph data from fonts.
 - `packages/website` (`@tegaki/website`) — Preview app and chat demo.
 
 ## Commands
@@ -145,4 +145,4 @@ Each stroke point has: `x`, `y` (font units), `t` (0-1 animation progress along 
 - Biome auto-formats on commit via husky + lint-staged
 - Imports use `.ts` extensions for local imports (`import { foo } from './bar.ts'`), package imports use bare specifiers (`import { foo } from 'tegaki'`)
 - Zod is imported as `import * as z from 'zod/v4'` (not default import)
-- Cross-package imports use the package name: `tegaki` for renderer types/components, `@tegaki/generator` for generator exports
+- Cross-package imports use the package name: `tegaki` for renderer types/components, `tegaki-generator` for generator exports

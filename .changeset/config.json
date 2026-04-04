@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
   "changelog": ["@changesets/changelog-github", { "repo": "KurtGokhan/tegaki" }],
   "commit": false,
-  "fixed": [["tegaki", "@tegaki/monorepo", "@tegaki/generator", "@tegaki/website"]],
+  "fixed": [["tegaki", "tegaki-monorepo", "tegaki-generator", "tegaki-website"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",

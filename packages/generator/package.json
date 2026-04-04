@@ -1,5 +1,5 @@
 {
-  "name": "@tegaki/generator",
+  "name": "tegaki-generator",
   "version": "0.1.0",
   "private": true,
   "type": "module",
