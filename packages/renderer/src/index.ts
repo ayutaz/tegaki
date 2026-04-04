@@ -1,3 +1,4 @@
 export { drawGlyph } from './lib/drawGlyph.ts';
-export { computeTimeline, TegakiRenderer, type TegakiRendererProps, type Timeline } from './lib/TegakiRenderer.tsx';
+export { TegakiRenderer, type TegakiRendererProps } from './lib/TegakiRenderer.tsx';
+export { computeTimeline, type Timeline } from './lib/timeline.ts';
 export type * from './types.ts';
