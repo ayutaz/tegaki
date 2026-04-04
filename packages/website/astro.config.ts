@@ -4,12 +4,17 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://gkurt.com/tegaki',
+  site: 'https://gkurt.com',
+  base: '/tegaki',
   integrations: [
     starlight({
       title: 'Tegaki',
       description: 'Animated handwriting from any Google Font. Generate stroke data, render beautiful writing animations in React.',
-      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/KurtGokhan/tegaki' }],
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/KurtGokhan/tegaki' },
+        { icon: 'twitter', label: 'Twitter', href: 'https://twitter.com/gkurttech' },
+        { icon: 'npm', label: 'npm', href: 'https://www.npmjs.com/package/tegaki' },
+      ],
       sidebar: [
         {
           label: 'Getting Started',
@@ -49,11 +54,19 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     resolve: {
+      external: ['tegaki'],
       conditions: ['tegaki@dev'],
+      externalConditions: ['tegaki@dev'],
     },
     build: {
       rollupOptions: {
-        external: ['bun', 'node:path'],
+        external: [/^node:/, 'bun'],
+      },
+    },
+    ssr: {
+      resolve: {
+        conditions: ['tegaki@dev'],
+        externalConditions: ['tegaki@dev'],
       },
     },
   },
