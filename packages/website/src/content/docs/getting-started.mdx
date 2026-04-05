@@ -1,31 +1,81 @@
 ---
-title: Introduction
-description: Animated handwriting from any Google Font.
+title: Getting Started
+description: Install Tegaki and render your first handwriting animation.
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Steps } from '@astrojs/starlight/components';
 
 Tegaki generates stroke data from Google Fonts and renders beautiful handwriting animations in React.
 
-<CardGrid>
-  <Card title="Generate" icon="pencil">
-    The generator CLI downloads any Google Font, extracts glyph outlines, computes skeletons, and traces stroke paths with width and timing data.
-  </Card>
-  <Card title="Bundle" icon="seti:json">
-    Stroke data is packaged into a compact bundle with glyph metrics and timing information.
-  </Card>
-  <Card title="Render" icon="rocket">
-    Drop the `TegakiRenderer` React component into your app. It handles text layout, line wrapping, and smooth animation playback.
-  </Card>
-</CardGrid>
+## Installation
 
-## Packages
+<Tabs>
+  <TabItem label="npm">
+    ```sh
+    npm install tegaki
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm add tegaki
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn add tegaki
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```sh
+    bun add tegaki
+    ```
+  </TabItem>
+</Tabs>
 
-- **`tegaki`** — React component for rendering animated handwriting
-- **`tegaki-generator`** — CLI tool that generates glyph data from fonts
+## Quick Start
 
-## Next steps
+<Steps>
 
-- [Installation](/installation/) — add Tegaki to your project
-- [Quick Start](/quick-start/) — render your first animation in minutes
-- [Generator](/generator/) — try the interactive generator tool
+1. **Pick a font bundle**
+
+   Use one of the built-in font bundles:
+
+   ```tsx
+   import bundle from 'tegaki/fonts/caveat';
+   ```
+
+   Built-in fonts: `caveat`, `italianno`, `tangerine`, `parisienne`.
+
+   Want a different font? Use the [interactive generator](/tegaki/generator/) to create stroke data for any Google Font, then import the downloaded bundle instead:
+
+   ```tsx
+   import bundle from './output/my-font/bundle';
+   ```
+
+2. **Render the animation**
+
+   Use the `TegakiRenderer` component:
+
+   ```tsx
+   import { TegakiRenderer } from 'tegaki';
+
+   function App() {
+     return (
+       <TegakiRenderer
+         font={bundle}
+         time={{ mode: 'uncontrolled', speed: 1, loop: true }}
+         style={{ fontSize: 48 }}
+       >
+         Hello World
+       </TegakiRenderer>
+     );
+   }
+   ```
+
+</Steps>
+
+## What's next?
+
+- [Generating Font Data](/guides/generating/) — learn about pipeline options and customization
+- [Rendering Animations](/guides/rendering/) — control timing, effects, and rendering modes
+- [Generator Tool](/generator/) — try the interactive generator
