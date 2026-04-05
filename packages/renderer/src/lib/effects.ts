@@ -6,18 +6,20 @@ export interface ResolvedEffect<K extends TegakiEffectName = TegakiEffectName> {
   config: TegakiEffectConfigs[K];
 }
 
+const defaultEffects: Record<string, any> = { pressureWidth: true };
+const knownEffects: Set<string> = new Set(['glow', 'wobble', 'pressureWidth', 'taper', 'gradient']);
+
 /**
  * Normalizes an effects record into a sorted array of resolved effects.
  * Known keys infer the effect name; custom keys read it from the `effect` field.
  * Boolean `true` becomes an empty config. `false`/absent entries are skipped.
  */
 export function resolveEffects(effects: Record<string, any> | undefined): ResolvedEffect[] {
-  if (!effects) return [];
+  const merged = { ...defaultEffects, ...effects };
 
-  const knownEffects: Set<string> = new Set(['glow', 'wobble', 'pressureWidth', 'taper', 'gradient']);
   const result: ResolvedEffect[] = [];
 
-  for (const [key, value] of Object.entries(effects)) {
+  for (const [key, value] of Object.entries(merged)) {
     if (value === false || value == null) continue;
 
     let effectName: TegakiEffectName;
