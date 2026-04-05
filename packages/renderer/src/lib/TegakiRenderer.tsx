@@ -1,3 +1,5 @@
+'use client';
+
 import { type ComponentProps, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TegakiBundle, TegakiEffects } from '../types.ts';
 import { drawFallbackGlyph } from './drawFallbackGlyph.ts';
@@ -20,13 +22,18 @@ const CSS_PROGRESS = '--tegaki-progress';
 const CSS_DURATION = '--tegaki-duration';
 
 // Register custom properties so they are animatable (typed as <number>).
-// Calling registerProperty twice with the same name throws, so guard with try/catch.
-if (typeof CSS !== 'undefined' && 'registerProperty' in CSS) {
-  for (const prop of [CSS_TIME, CSS_PROGRESS, CSS_DURATION]) {
-    try {
-      CSS.registerProperty({ name: prop, syntax: '<number>', inherits: true, initialValue: '0' });
-    } catch {
-      // Already registered — ignore.
+// Deferred to first mount to avoid running at import time during SSR.
+let cssPropertiesRegistered = false;
+function registerCssProperties() {
+  if (cssPropertiesRegistered) return;
+  cssPropertiesRegistered = true;
+  if (typeof CSS !== 'undefined' && 'registerProperty' in CSS) {
+    for (const prop of [CSS_TIME, CSS_PROGRESS, CSS_DURATION]) {
+      try {
+        CSS.registerProperty({ name: prop, syntax: '<number>', inherits: true, initialValue: '0' });
+      } catch {
+        // Already registered — ignore.
+      }
     }
   }
 }
@@ -144,6 +151,8 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   showOverlay,
   ...props
 }: TegakiRendererProps<E>) {
+  registerCssProperties();
+
   const resolvedText = text ?? coerceToString(children);
 
   // --- Resolve effects ---
@@ -200,7 +209,9 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   onCompleteRef.current = onComplete;
 
   // --- Font loading ---
-  const [fontReady, setFontReady] = useState(() => !!font && document.fonts.check(`16px "${font?.family}"`));
+  const [fontReady, setFontReady] = useState(
+    () => typeof document !== 'undefined' && !!font && document.fonts.check(`16px "${font.family}"`),
+  );
   useEffect(() => {
     if (!font) {
       setFontReady(false);
@@ -508,10 +519,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   ]);
 
   // --- Rendering ---
-
-  if (!font || !resolvedText || !fontReady) {
-    return <div ref={rootRef} {...props} />;
-  }
 
   return (
     <div
