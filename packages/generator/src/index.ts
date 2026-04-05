@@ -10,7 +10,6 @@ export {
   type PipelineResult,
   parseFont,
   processGlyph,
-  svgToTsx,
   type TegakiBundleOutput,
 } from './commands/generate.ts';
 export { DEFAULT_CHARS, EXAMPLE_FONTS } from './constants.ts';

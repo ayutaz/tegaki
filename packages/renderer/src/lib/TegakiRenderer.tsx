@@ -1,4 +1,4 @@
-import { type ComponentProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentProps, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { TegakiBundle, TegakiEffects } from '../types.ts';
 import { drawFallbackGlyph } from './drawFallbackGlyph.ts';
 import { drawGlyph } from './drawGlyph.ts';
@@ -89,10 +89,6 @@ export interface TegakiRendererProps<E extends TegakiEffects<E> = Record<string,
   /** Called once when the animation reaches the end of the timeline. */
   onComplete?: () => void;
 
-  /** Rendering mode. `'canvas'` draws strokes on a `<canvas>` (requires
-   * `font.glyphData`), `'svg'` uses animated SVG elements. Default: `'canvas'` */
-  mode?: 'canvas' | 'svg';
-
   /** Visual effects applied during canvas rendering. */
   effects?: E;
 
@@ -115,7 +111,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   children,
   time: timeProp,
   onComplete,
-  mode = 'canvas',
   effects,
   segmentSize,
   timing,
@@ -186,7 +181,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   // --- Font-derived constants ---
   const fontFamily = font?.family;
   const emHeight = font ? (font.ascender - font.descender) / font.unitsPerEm : 0;
-  const baselineOffset = font ? font.descender / font.unitsPerEm : 0;
 
   // --- Container measurement ---
   const rootRef = useRef<HTMLDivElement>(null);
@@ -276,44 +270,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     return () => cancelAnimationFrame(raf);
   }, [isControlled, playing, speed, loop, catchUp, font, fontReady]);
 
-  // --- SVG refs (only needed in SVG mode) ---
-  const svgRefs = useRef(new Map<number, SVGSVGElement>());
-  const svgRefCallbacks = useRef(new Map<number, (node: SVGSVGElement | null) => void>());
-
-  const makeSvgRef = useCallback(
-    (charIdx: number) => (node: SVGSVGElement | null) => {
-      if (node) {
-        node.pauseAnimations();
-        svgRefs.current.set(charIdx, node);
-      } else {
-        svgRefs.current.delete(charIdx);
-      }
-    },
-    [],
-  );
-
-  const getSvgRef = useCallback(
-    (charIdx: number) => {
-      let cb = svgRefCallbacks.current.get(charIdx);
-      if (!cb) {
-        cb = makeSvgRef(charIdx);
-        svgRefCallbacks.current.set(charIdx, cb);
-      }
-      return cb;
-    },
-    [makeSvgRef],
-  );
-
-  // Clear stale SVG refs when font or mode changes
-  const prevFontRef = useRef(font);
-  const prevModeRef = useRef(mode);
-  if (prevFontRef.current !== font || prevModeRef.current !== mode) {
-    prevFontRef.current = font;
-    prevModeRef.current = mode;
-    svgRefs.current.clear();
-    svgRefCallbacks.current.clear();
-  }
-
   // --- Container size observation ---
   useEffect(() => {
     const el = rootRef.current;
@@ -362,27 +318,10 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
   const padH = PADDING_H_EM * fontSize;
   const padV = fontSize ? Math.max(MIN_PADDING_V_EM * fontSize, (MIN_LINE_HEIGHT_EM * fontSize - lineHeight) / 2) : 0;
 
-  // --- Sync SVG glyph times before paint ---
-  // Runs every render so SVGs stay correct even when currentTime hasn't changed
-  // (e.g. after pausing, or when ref callbacks re-fire due to re-renders).
-  useLayoutEffect(() => {
-    if (mode !== 'svg') return;
-    const entries = timeline.entries;
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]!;
-      if (!entry.hasSvg) continue;
-      const svg = svgRefs.current.get(i);
-      if (!svg) continue;
-      const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
-      svg.setCurrentTime(localTime);
-    }
-  });
-
   // --- Canvas rendering ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useLayoutEffect(() => {
-    if (mode !== 'canvas') return;
     const canvas = canvasRef.current;
     if (!canvas || !font?.glyphData || !layout || !fontSize) return;
 
@@ -425,7 +364,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
         const kerning = layout.kernings[charIdx] ?? 0;
         const glyph = font.glyphData[char];
 
-        if (glyph && entry.hasSvg) {
+        if (glyph && entry.hasGlyph) {
           const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
           const glyphY = y + halfLeading;
           drawGlyph(
@@ -446,7 +385,7 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
             seed + charIdx,
             segmentSize,
           );
-        } else if (!entry.hasSvg && currentTime >= entry.offset + entry.duration) {
+        } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
           const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;
           drawFallbackGlyph(ctx, char, x, baseline, fontSize, fontFamily!, color, resolvedEffects, seed + charIdx);
         }
@@ -456,7 +395,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
       y += lineHeight;
     }
   }, [
-    mode,
     currentTime,
     timeline,
     layout,
@@ -472,61 +410,6 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     seed,
     segmentSize,
   ]);
-
-  // --- SVG rendering (skipped entirely in canvas mode) ---
-  const lineElements = useMemo(() => {
-    if (mode !== 'svg' || !font || !resolvedText) return null;
-
-    const characters = graphemes(resolvedText);
-
-    const renderGlyph = (charIdx: number) => {
-      const char = characters[charIdx]!;
-      const entry = timeline.entries[charIdx]!;
-      const GlyphSvg = font.glyphs[char] as any;
-      const width = layout?.charWidths[charIdx] ?? 1;
-      const kerning = layout?.kernings[charIdx];
-
-      if (char === '\n') return null;
-
-      if (GlyphSvg) {
-        return (
-          <GlyphSvg
-            key={charIdx}
-            ref={getSvgRef(charIdx)}
-            style={{
-              display: 'inline-block',
-              verticalAlign: `${baselineOffset}em`,
-              width: `${width}em`,
-              marginRight: kerning ? `${kerning}em` : undefined,
-              height: `${emHeight}em`,
-              overflow: 'visible',
-            }}
-          />
-        );
-      }
-
-      const isVisible = currentTime >= entry.offset + entry.duration;
-      return (
-        <span style={{ fontFamily, visibility: isVisible ? 'visible' : 'hidden' }} key={charIdx}>
-          {char}
-        </span>
-      );
-    };
-
-    if (layout) {
-      return layout.lines.map((lineIndices, lineIdx) => {
-        const isEmpty = lineIndices.every((i) => characters[i] === '\n');
-        return (
-          <div style={{ whiteSpace: 'nowrap', height: isEmpty ? '1lh' : undefined, lineHeight: `${lineHeight}px` }} key={lineIdx}>
-            {lineIndices.map(renderGlyph)}
-          </div>
-        );
-      });
-    }
-
-    // Fallback before layout is ready: single line
-    return characters.length > 0 ? <div style={{ whiteSpace: 'nowrap' }}>{characters.map((_, i) => renderGlyph(i))}</div> : null;
-  }, [mode, resolvedText, timeline, font, layout, getSvgRef, baselineOffset, emHeight, currentTime, fontFamily, lineHeight]);
 
   // --- Rendering ---
 
@@ -568,30 +451,17 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
       >
         {'\u00A0'}
       </span>
-      {mode === 'canvas' ? (
-        <canvas
-          ref={canvasRef}
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: `${-padV}px ${-padH}px`,
-            width: `calc(100% + ${padH * 2}px)`,
-            height: `calc(100% + ${padV * 2}px)`,
-            pointerEvents: 'none',
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            fontFamily,
-          }}
-        >
-          {lineElements}
-        </div>
-      )}
+      <canvas
+        ref={canvasRef}
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: `${-padV}px ${-padH}px`,
+          width: `calc(100% + ${padH * 2}px)`,
+          height: `calc(100% + ${padV * 2}px)`,
+          pointerEvents: 'none',
+        }}
+      />
 
       <div
         style={{

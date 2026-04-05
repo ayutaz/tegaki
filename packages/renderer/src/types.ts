@@ -107,8 +107,7 @@ export interface TegakiBundle {
   unitsPerEm: number;
   ascender: number;
   descender: number;
-  glyphs: Record<string, import('react').FC<import('react').SVGProps<SVGSVGElement>>>;
-  glyphData?: Record<string, TegakiGlyphData>;
+  glyphData: Record<string, TegakiGlyphData>;
   glyphTimings: Record<string, number>;
   registerFontFace: () => Promise<void>;
 }

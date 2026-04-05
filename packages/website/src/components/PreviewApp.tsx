@@ -1,12 +1,11 @@
 import { zipSync } from 'fflate';
-import { forwardRef, type SVGProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeTimeline, type LineCap, type TegakiBundle, TegakiRenderer, type TimeControlProp } from 'tegaki';
 import {
   type BrowserSkeletonMethod,
   DEFAULT_OPTIONS,
   EXAMPLE_FONTS,
   extractTegakiBundle,
-  glyphToAnimatedSVG,
   type ParsedFontInfo,
   type PipelineOptions,
   type PipelineResult,
@@ -22,7 +21,6 @@ import {
   EFFECT_DEFAULTS,
   type EffectsState,
   parseUrlState,
-  type RenderMode,
   syncUrlState,
   type TimeMode,
 } from './url-state.ts';
@@ -85,7 +83,6 @@ export function PreviewApp() {
   const [fontSizePx, setFontSizePx] = useState(initialUrlState.fontSizePx);
   const [lineHeightRatio, setLineHeightRatio] = useState(initialUrlState.lineHeightRatio);
   const [showOverlay, setShowOverlay] = useState(initialUrlState.showOverlay);
-  const [renderMode, setRenderMode] = useState<RenderMode>(initialUrlState.renderMode);
   const [timeMode, setTimeMode] = useState<TimeMode>(initialUrlState.timeMode);
   const [loop, setLoop] = useState(initialUrlState.loop);
   const [effectsState, setEffectsState] = useState<EffectsState>(initialUrlState.effectsState);
@@ -239,7 +236,6 @@ export function PreviewApp() {
         fontSizePx,
         lineHeightRatio,
         showOverlay,
-        renderMode,
         timeMode,
         loop,
         effectsState,
@@ -261,7 +257,6 @@ export function PreviewApp() {
     fontSizePx,
     lineHeightRatio,
     showOverlay,
-    renderMode,
     timeMode,
     loop,
     catchUp,
@@ -728,8 +723,6 @@ export function PreviewApp() {
             onLineHeightRatioChange={setLineHeightRatio}
             showOverlay={showOverlay}
             onShowOverlayChange={setShowOverlay}
-            renderMode={renderMode}
-            onRenderModeChange={setRenderMode}
             timeMode={timeMode}
             onTimeModeChange={setTimeMode}
             loop={loop}
@@ -986,23 +979,6 @@ function AnimationControls({
 
 // --- Text preview ---
 
-/** Create a React SVG component from an SVG string (produced by glyphToAnimatedSVG) */
-function createGlyphComponent(svgString: string) {
-  return forwardRef<SVGSVGElement, SVGProps<SVGSVGElement>>((props, ref) => {
-    const callbackRef = useCallback(
-      (wrapper: HTMLSpanElement | null) => {
-        const svg = wrapper?.querySelector('svg') ?? null;
-        if (svg && props.style) Object.assign(svg.style, props.style);
-        if (typeof ref === 'function') ref(svg);
-        else if (ref) ref.current = svg;
-      },
-      [ref, props.style],
-    );
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG from glyphToAnimatedSVG is trusted
-    return <span ref={callbackRef} style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: svgString }} />;
-  });
-}
-
 function TextPreview({
   fontInfo,
   fontBuffer,
@@ -1018,8 +994,6 @@ function TextPreview({
   onLineHeightRatioChange,
   showOverlay,
   onShowOverlayChange,
-  renderMode,
-  onRenderModeChange,
   timeMode,
   onTimeModeChange: setTimeMode,
   loop,
@@ -1047,8 +1021,6 @@ function TextPreview({
   onLineHeightRatioChange: (v: number) => void;
   showOverlay: boolean;
   onShowOverlayChange: (v: boolean) => void;
-  renderMode: RenderMode;
-  onRenderModeChange: (v: RenderMode) => void;
   timeMode: TimeMode;
   onTimeModeChange: (v: TimeMode) => void;
   loop: boolean;
@@ -1128,11 +1100,9 @@ function TextPreview({
 
   // Synchronous font change detection — reset all font-dependent state BEFORE rendering
   // so TegakiRenderer never sees stale fontReady, displayTime, or glyph components.
-  const componentCache = useRef(new Map<string, React.FC<SVGProps<SVGSVGElement>>>());
   const prevFontInfoForReset = useRef(fontInfo);
   if (prevFontInfoForReset.current !== fontInfo) {
     prevFontInfoForReset.current = fontInfo;
-    componentCache.current.clear();
     if (fontReady) setFontReady(false);
     timeRef.current = 0;
     if (displayTime !== 0) setDisplayTime(0);
@@ -1176,12 +1146,11 @@ function TextPreview({
     };
   }, [fontInfo, fontUrl]);
 
-  // Process glyphs and build a FontBundle (glyph components are cached via resultsCache + componentCache)
+  // Process glyphs and build a FontBundle
   const fontBundle = useMemo(() => {
     if (!fontInfo || !fontUrl) return null;
 
-    const glyphs: Record<string, React.FC<SVGProps<SVGSVGElement>>> = {};
-    const glyphData: NonNullable<TegakiBundle['glyphData']> = {};
+    const glyphData: TegakiBundle['glyphData'] = {};
     const glyphTimings: Record<string, number> = {};
     const optionsKey = JSON.stringify(options);
 
@@ -1197,15 +1166,6 @@ function TextPreview({
         if (res) resultsCache.current.set(cacheKey, res);
       }
       if (!res) continue;
-
-      // Reuse existing component if the pipeline result is the same
-      let component = componentCache.current.get(cacheKey);
-      if (!component) {
-        const svg = glyphToAnimatedSVG(res.strokesFontUnits, res.advanceWidth, res.ascender, res.descender, res.lineCap);
-        component = createGlyphComponent(svg);
-        componentCache.current.set(cacheKey, component);
-      }
-      glyphs[char] = component;
 
       glyphData[char] = {
         advanceWidth: res.advanceWidth,
@@ -1227,7 +1187,6 @@ function TextPreview({
       unitsPerEm: fontInfo.unitsPerEm,
       ascender: fontInfo.ascender,
       descender: fontInfo.descender,
-      glyphs,
       glyphData,
       glyphTimings,
       registerFontFace: async () => {},
@@ -1344,7 +1303,6 @@ function TextPreview({
                 text={text}
                 time={timeProp}
                 font={fontBundle}
-                mode={renderMode}
                 showOverlay={showOverlay}
                 effects={effects}
                 segmentSize={segmentSize}
@@ -1369,7 +1327,7 @@ function TextPreview({
         </div>
 
         {/* Effects drawer (right side) */}
-        {showEffectsDrawer && renderMode === 'canvas' && (
+        {showEffectsDrawer && (
           <aside className="w-64 min-w-64 border-l border-gray-200 bg-white overflow-y-auto flex flex-col">
             <div className="p-3 border-b border-gray-200 flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Effects</span>
@@ -1847,32 +1805,15 @@ function TextPreview({
 
           <span className="border-l border-gray-200 h-6" />
 
-          <label className="flex items-center gap-1.5 text-xs text-gray-600">
-            Render
-            <select
-              className="px-1.5 py-0.5 border border-gray-300 rounded text-xs bg-white"
-              value={renderMode}
-              onChange={(e) => onRenderModeChange(e.target.value as RenderMode)}
-            >
-              <option value="svg">SVG</option>
-              <option value="canvas">Canvas</option>
-            </select>
-          </label>
-
-          {renderMode === 'canvas' && (
-            <>
-              <span className="border-l border-gray-200 h-6" />
-              <button
-                type="button"
-                className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${
-                  showEffectsDrawer ? 'bg-gray-800 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
-                onClick={() => setShowEffectsDrawer(!showEffectsDrawer)}
-              >
-                Effects{activeEffectCount > 0 ? ` (${activeEffectCount})` : ''}
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors ${
+              showEffectsDrawer ? 'bg-gray-800 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            }`}
+            onClick={() => setShowEffectsDrawer(!showEffectsDrawer)}
+          >
+            Effects{activeEffectCount > 0 ? ` (${activeEffectCount})` : ''}
+          </button>
         </div>
       </div>
     </div>

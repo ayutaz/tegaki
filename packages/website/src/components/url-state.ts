@@ -16,7 +16,6 @@ type Stage =
 type PreviewMode = 'glyph' | 'text';
 
 /** All state that gets persisted to the URL */
-export type RenderMode = 'svg' | 'canvas';
 export type TimeMode = 'controlled' | 'uncontrolled' | 'css';
 
 export type EffectsState = {
@@ -57,7 +56,6 @@ export interface UrlState {
   fontSizePx: number;
   lineHeightRatio: number;
   showOverlay: boolean;
-  renderMode: RenderMode;
   timeMode: TimeMode;
   loop: boolean;
   catchUp: number;
@@ -78,7 +76,6 @@ export const URL_DEFAULTS: UrlState = {
   fontSizePx: 128,
   lineHeightRatio: 1.5,
   showOverlay: false,
-  renderMode: 'canvas',
   timeMode: 'controlled',
   loop: false,
   catchUp: 0,
@@ -127,7 +124,6 @@ export function parseUrlState(): UrlState {
   if (p.has('fs')) state.fontSizePx = Number(p.get('fs'));
   if (p.has('lh')) state.lineHeightRatio = Number(p.get('lh'));
   if (p.has('ol')) state.showOverlay = p.get('ol') === '1';
-  if (p.has('rm')) state.renderMode = p.get('rm') as RenderMode;
   if (p.has('tm')) state.timeMode = p.get('tm') as TimeMode;
   if (p.has('lo')) state.loop = p.get('lo') === '1';
   if (p.has('cu')) state.catchUp = Number(p.get('cu'));
@@ -172,7 +168,6 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
   if (state.fontSizePx !== URL_DEFAULTS.fontSizePx) p.set('fs', String(state.fontSizePx));
   if (state.lineHeightRatio !== URL_DEFAULTS.lineHeightRatio) p.set('lh', String(state.lineHeightRatio));
   if (state.showOverlay !== URL_DEFAULTS.showOverlay) p.set('ol', '1');
-  if (state.renderMode !== URL_DEFAULTS.renderMode) p.set('rm', state.renderMode);
   if (state.timeMode !== URL_DEFAULTS.timeMode) p.set('tm', state.timeMode);
   if (state.loop !== URL_DEFAULTS.loop) p.set('lo', '1');
   if (state.catchUp !== URL_DEFAULTS.catchUp) p.set('cu', String(state.catchUp));

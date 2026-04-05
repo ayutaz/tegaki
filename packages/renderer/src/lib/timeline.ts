@@ -8,7 +8,7 @@ export interface TimelineConfig {
   wordGap?: number;
   /** Pause after a newline / line break (seconds). Default: `0.3` */
   lineGap?: number;
-  /** Duration for characters without glyph SVGs (seconds). Default: `0.2` */
+  /** Duration for characters without glyph data (seconds). Default: `0.2` */
   unknownDuration?: number;
 }
 
@@ -23,7 +23,7 @@ export interface TimelineEntry {
   char: string;
   offset: number;
   duration: number;
-  hasSvg: boolean;
+  hasGlyph: boolean;
 }
 
 export interface Timeline {
@@ -41,9 +41,9 @@ export function computeTimeline(text: string, font: TegakiBundle, config?: Timel
   const entries: TimelineEntry[] = [];
   let offset = 0;
   for (const char of chars) {
-    const hasSvg = char in font.glyphs;
-    const duration = hasSvg ? (font.glyphTimings[char] ?? 1) : unknownDuration;
-    entries.push({ char, offset, duration, hasSvg });
+    const hasGlyph = char in font.glyphTimings;
+    const duration = hasGlyph ? (font.glyphTimings[char] ?? 1) : unknownDuration;
+    entries.push({ char, offset, duration, hasGlyph });
     offset += duration;
 
     // Gap after this character

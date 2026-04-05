@@ -60,18 +60,14 @@ Animation is driven purely by CSS (best performance, no JavaScript animation loo
 </TegakiRenderer>
 ```
 
-## Render modes
-
-- **SVG** — Each glyph is an inline SVG with stroke-dasharray animation
-- **Canvas** — Renders to a 2D canvas with support for effects
+## Effects
 
 ```tsx
 <TegakiRenderer
   font={bundle}
-  renderMode="canvas"
   effects={{ glow: { radius: 8, color: '#00ccff' } }}
 >
-  Canvas with effects
+  With effects
 </TegakiRenderer>
 ```
 

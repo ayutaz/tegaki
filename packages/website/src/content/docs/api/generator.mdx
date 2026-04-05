@@ -40,20 +40,11 @@ npx tegaki-generator generate --font "Caveat" --chars "Hello World" --resolution
 ## Programmatic API
 
 ```ts
-import { parseFont, processGlyph, glyphToAnimatedSVG } from 'tegaki-generator';
+import { parseFont, processGlyph } from 'tegaki-generator';
 
 // Parse a font file
 const fontInfo = parseFont(buffer);
 
 // Process a single glyph
 const result = processGlyph(fontInfo, 'A', options);
-
-// Convert to animated SVG
-const svg = glyphToAnimatedSVG(
-  result.strokesFontUnits,
-  result.advanceWidth,
-  result.ascender,
-  result.descender,
-  result.lineCap,
-);
 ```

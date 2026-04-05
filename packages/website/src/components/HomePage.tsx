@@ -1,9 +1,8 @@
-import { forwardRef, type SVGProps, useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type TegakiBundle, TegakiRenderer } from 'tegaki';
 import {
   DEFAULT_OPTIONS,
   EXAMPLE_FONTS,
-  glyphToAnimatedSVG,
   type ParsedFontInfo,
   type PipelineOptions,
   type PipelineResult,
@@ -25,35 +24,10 @@ async function fetchFontFromCDN(family: string): Promise<ArrayBuffer> {
   return resp.arrayBuffer();
 }
 
-// --- Glyph component factory (same pattern as PreviewApp) ---
-
-function createGlyphComponent(svgString: string) {
-  return forwardRef<SVGSVGElement, SVGProps<SVGSVGElement>>((props, ref) => {
-    const callbackRef = useCallback(
-      (wrapper: HTMLSpanElement | null) => {
-        const svg = wrapper?.querySelector('svg') ?? null;
-        if (svg && props.style) Object.assign(svg.style, props.style);
-        if (typeof ref === 'function') ref(svg);
-        else if (ref) ref.current = svg;
-      },
-      [ref, props.style],
-    );
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG from glyphToAnimatedSVG is trusted
-    return <span ref={callbackRef} style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: svgString }} />;
-  });
-}
-
 // --- Build a TegakiBundle from a parsed font ---
 
-function buildBundle(
-  fontInfo: ParsedFontInfo,
-  fontUrl: string,
-  text: string,
-  cache: Map<string, PipelineResult>,
-  componentCache: Map<string, React.FC<SVGProps<SVGSVGElement>>>,
-): TegakiBundle {
-  const glyphs: Record<string, React.FC<SVGProps<SVGSVGElement>>> = {};
-  const glyphData: NonNullable<TegakiBundle['glyphData']> = {};
+function buildBundle(fontInfo: ParsedFontInfo, fontUrl: string, text: string, cache: Map<string, PipelineResult>): TegakiBundle {
+  const glyphData: TegakiBundle['glyphData'] = {};
   const glyphTimings: Record<string, number> = {};
   const optionsKey = JSON.stringify(OPTIONS);
 
@@ -69,14 +43,6 @@ function buildBundle(
       if (res) cache.set(cacheKey, res);
     }
     if (!res) continue;
-
-    let component = componentCache.get(cacheKey);
-    if (!component) {
-      const svg = glyphToAnimatedSVG(res.strokesFontUnits, res.advanceWidth, res.ascender, res.descender, res.lineCap);
-      component = createGlyphComponent(svg);
-      componentCache.set(cacheKey, component);
-    }
-    glyphs[char] = component;
 
     glyphData[char] = {
       advanceWidth: res.advanceWidth,
@@ -98,7 +64,6 @@ function buildBundle(
     unitsPerEm: fontInfo.unitsPerEm,
     ascender: fontInfo.ascender,
     descender: fontInfo.descender,
-    glyphs,
     glyphData,
     glyphTimings,
     registerFontFace: async () => {},
@@ -115,7 +80,6 @@ type FontState =
 function FontCard({ family, text, fontSize }: { family: string; text: string; fontSize?: number }) {
   const [state, setState] = useState<FontState>({ status: 'loading' });
   const resultsCache = useRef(new Map<string, PipelineResult>());
-  const componentCache = useRef(new Map<string, React.FC<SVGProps<SVGSVGElement>>>());
 
   useEffect(() => {
     let cancelled = false;
@@ -137,7 +101,7 @@ function FontCard({ family, text, fontSize }: { family: string; text: string; fo
         }
         document.fonts.add(loaded);
 
-        const bundle = buildBundle(fontInfo, fontUrl, text, resultsCache.current, componentCache.current);
+        const bundle = buildBundle(fontInfo, fontUrl, text, resultsCache.current);
         setState({ status: 'ready', fontInfo, fontUrl, bundle });
       } catch (e) {
         if (!cancelled) setState({ status: 'error', message: (e as Error).message });
@@ -174,7 +138,6 @@ function FontCard({ family, text, fontSize }: { family: string; text: string; fo
 function Hero() {
   const [state, setState] = useState<FontState>({ status: 'loading' });
   const resultsCache = useRef(new Map<string, PipelineResult>());
-  const componentCache = useRef(new Map<string, React.FC<SVGProps<SVGSVGElement>>>());
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +156,7 @@ function Hero() {
           return;
         }
         document.fonts.add(loaded);
-        const bundle = buildBundle(fontInfo, fontUrl, HERO_TEXT, resultsCache.current, componentCache.current);
+        const bundle = buildBundle(fontInfo, fontUrl, HERO_TEXT, resultsCache.current);
         setState({ status: 'ready', fontInfo, fontUrl, bundle });
       } catch (e) {
         if (!cancelled) setState({ status: 'error', message: (e as Error).message });
@@ -276,8 +239,7 @@ export function HomePage() {
               <div className="mb-3 text-3xl">2</div>
               <h3 className="mb-2 text-lg font-medium text-gray-900">Bundle</h3>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Stroke data is packaged into a compact bundle with animated SVG components, glyph metrics, and timing information ready for
-                the renderer.
+                Stroke data is packaged into a compact bundle with glyph metrics and timing information ready for the renderer.
               </p>
             </div>
             <div>
