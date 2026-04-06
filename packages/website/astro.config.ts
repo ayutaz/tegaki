@@ -14,7 +14,7 @@ export default defineConfig({
     starlight({
       title: 'Tegaki',
       description:
-        'Animated handwriting from any Google Font. Generate stroke data, render beautiful writing animations in React, Svelte, Vue, SolidJS, Astro, or vanilla JS.',
+        'Animated handwriting from any Google Font. Generate stroke data, render beautiful writing animations in React, Svelte, Vue, SolidJS, Astro, Web Components, or vanilla JS.',
       logo: { src: './src/assets/tegaki.svg', alt: 'Tegaki logo' },
       head: [{ tag: 'meta', attrs: { property: 'og:image', content: '/tegaki/tegaki-card.png' } }],
       social: [

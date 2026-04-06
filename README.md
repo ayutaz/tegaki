@@ -60,6 +60,7 @@ import TegakiRenderer from 'tegaki/astro';       // Astro
 
 ```ts
 import { TegakiEngine } from 'tegaki/core';      // Vanilla JS
+import { registerTegakiElement } from 'tegaki/wc'; // Web Components
 ```
 
 ## Built-in Fonts
@@ -78,7 +79,7 @@ For other Google Fonts, use the [interactive generator](https://gkurt.com/tegaki
 Visit **[gkurt.com/tegaki](https://gkurt.com/tegaki)** for full documentation:
 
 - [Getting Started](https://gkurt.com/tegaki/getting-started/)
-- [Framework Guides](https://gkurt.com/tegaki/frameworks/react/) (React, Svelte, Vue, SolidJS, Astro, Vanilla)
+- [Framework Guides](https://gkurt.com/tegaki/frameworks/react/) (React, Svelte, Vue, SolidJS, Astro, Web Components, Vanilla)
 - [Generating Fonts](https://gkurt.com/tegaki/guides/generating-fonts/)
 - [API Reference](https://gkurt.com/tegaki/api/tegaki-renderer/)
 
