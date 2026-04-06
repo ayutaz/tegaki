@@ -66,8 +66,7 @@ function htmlCreateElement(tag: string, nodeProps: Record<string, any>, ...child
 }
 
 // Compute initial HTML once — after the engine adopts, all updates go through engine.update().
-// biome-ignore lint/correctness/noUnusedVariables: used in Vue template
-const innerHtml = TegakiEngine.renderElements(engineOptions.value, htmlCreateElement);
+const { rootProps, content: innerHtml } = TegakiEngine.renderElements(engineOptions.value, htmlCreateElement);
 
 onMounted(() => {
   if (!container.value) return;
@@ -91,5 +90,5 @@ defineExpose({ engine, element: container });
 </script>
 
 <template>
-  <div ref="container" v-bind="$attrs" v-html="innerHtml" />
+  <div ref="container" data-tegaki="root" :style="rootProps.style" v-bind="$attrs" v-html="innerHtml" />
 </template>

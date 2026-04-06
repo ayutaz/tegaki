@@ -71,7 +71,9 @@ function htmlCreateElement(tag: string, props: Record<string, any>, ...children:
   return `${open}${content}</${tag}>`;
 }
 
-const innerHtml = shouldRender ? TegakiEngine.renderElements(engineOptions, htmlCreateElement) : '';
+const renderResult = shouldRender ? TegakiEngine.renderElements(engineOptions, htmlCreateElement) : null;
+const innerHtml = renderResult?.content ?? '';
+const rootStyle = renderResult ? styleToString(renderResult.rootProps.style) : '';
 
 // For serialization, replace the full bundle with just the family name.
 const clientOptions = {
@@ -89,7 +91,7 @@ const clientOptions = {
 )}
 
 {shouldRender && (
-  <div class={className} {...attrs} data-tegaki-options={JSON.stringify(clientOptions)} set:html={innerHtml} />
+  <div class={className} {...attrs} data-tegaki="root" style={rootStyle} data-tegaki-options={JSON.stringify(clientOptions)} set:html={innerHtml} />
 )}
 
 <script>

@@ -59,7 +59,8 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     showOverlay,
     onComplete,
   };
-  const elements = TegakiEngine.renderElements(engineOptions, reactCreateElement);
+  const { rootProps, content } = TegakiEngine.renderElements(engineOptions, reactCreateElement);
+  const { style: rootStyle, ...rootAttrs } = rootProps;
 
   // Create engine on mount, adopting the pre-rendered elements
   useEffect(() => {
@@ -90,9 +91,12 @@ export function TegakiRenderer<const E extends TegakiEffects<E> = Record<string,
     [],
   );
 
+  // Merge engine root styles with user-provided styles
+  const mergedStyle = { ...rootStyle, ...divProps.style };
+
   return (
-    <div ref={containerRef} {...divProps}>
-      {elements}
+    <div ref={containerRef} {...rootAttrs} {...divProps} style={mergedStyle}>
+      {content}
     </div>
   );
 }

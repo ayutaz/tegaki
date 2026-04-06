@@ -84,12 +84,10 @@ export type CreateElementFn<T> = (tag: string, props: Record<string, any>, ...ch
 
 const PAD_V_CSS = 'max(0.2em, 0.9em - 0.5lh)';
 
-function buildElements<T>(options: TegakiEngineOptions, h: CreateElementFn<T>): T {
+function buildRootProps(options: TegakiEngineOptions): Record<string, any> {
   const text = options.text ?? '';
   const font = resolveBundle(options.font);
   const fontFamily = font?.family;
-  const isCss = options.time === 'css' || (typeof options.time === 'object' && options.time?.mode === 'css');
-  const showOverlay = options.showOverlay;
 
   const duration = text && font ? computeTimeline(text, font, options.timing).totalDuration : 0;
   const time =
@@ -102,78 +100,82 @@ function buildElements<T>(options: TegakiEngineOptions, h: CreateElementFn<T>): 
           : 0;
   const progress = duration > 0 ? time / duration : 0;
 
+  return {
+    'data-tegaki': 'root',
+    style: {
+      position: 'relative',
+      maxWidth: '100%',
+      width: 'auto',
+      height: 'auto',
+      fontFamily: fontFamily ?? undefined,
+      [CSS_DURATION]: duration,
+      [CSS_TIME]: time,
+      [CSS_PROGRESS]: progress,
+    },
+  };
+}
+
+function buildChildren<T>(options: TegakiEngineOptions, h: CreateElementFn<T>): T {
+  const text = options.text ?? '';
+  const isCss = options.time === 'css' || (typeof options.time === 'object' && options.time?.mode === 'css');
+  const showOverlay = options.showOverlay;
+
   return h(
     'div',
-    {
-      'data-tegaki': 'root',
+    { style: { position: 'relative' } },
+    h('span', {
+      'data-tegaki': 'sentinel',
+      'aria-hidden': 'true',
       style: {
-        position: 'relative',
-        maxWidth: '100%',
-        width: 'auto',
-        height: 'auto',
-        fontFamily: fontFamily ?? undefined,
-        [CSS_DURATION]: duration,
-        [CSS_TIME]: time,
-        [CSS_PROGRESS]: progress,
+        position: 'absolute',
+        width: 0,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+        fontSize: 'inherit',
+        lineHeight: 'inherit',
+        visibility: 'hidden',
+        transition: isCss
+          ? `font-size 0.001s, line-height 0.001s, color 0.001s, ${CSS_PROGRESS} 0.001s`
+          : 'font-size 0.001s, line-height 0.001s, color 0.001s',
       },
-    },
+    }),
     h(
-      'div',
-      { style: { position: 'relative' } },
-      h('span', {
-        'data-tegaki': 'sentinel',
+      'canvas',
+      {
+        'data-tegaki': 'canvas',
         'aria-hidden': 'true',
         style: {
           position: 'absolute',
-          width: 0,
-          overflow: 'hidden',
+          inset: `calc(-1 * ${PAD_V_CSS}) -0.2em`,
+          width: 'calc(100% + 0.4em)',
+          height: `calc(100% + 2 * ${PAD_V_CSS})`,
           pointerEvents: 'none',
-          fontSize: 'inherit',
-          lineHeight: 'inherit',
-          visibility: 'hidden',
-          transition: isCss
-            ? `font-size 0.001s, line-height 0.001s, color 0.001s, ${CSS_PROGRESS} 0.001s`
-            : 'font-size 0.001s, line-height 0.001s, color 0.001s',
+          overflow: 'visible',
         },
-      }),
+      },
       h(
-        'canvas',
+        'span',
         {
-          'data-tegaki': 'canvas',
-          'aria-hidden': 'true',
-          style: {
-            position: 'absolute',
-            inset: `calc(-1 * ${PAD_V_CSS}) -0.2em`,
-            width: 'calc(100% + 0.4em)',
-            height: `calc(100% + 2 * ${PAD_V_CSS})`,
-            pointerEvents: 'none',
-            overflow: 'visible',
-          },
-        },
-        h(
-          'span',
-          {
-            'data-tegaki': 'canvas-fallback',
-            style: { display: 'inline-block', padding: `${PAD_V_CSS} 0.2em` },
-          },
-          text,
-        ),
-      ),
-      h(
-        'div',
-        {
-          'data-tegaki': 'overlay',
-          style: {
-            userSelect: 'auto',
-            whiteSpace: 'pre-wrap',
-            overflowWrap: 'break-word',
-            paddingRight: 1,
-            WebkitTextFillColor: showOverlay ? undefined : 'transparent',
-            color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
-          },
+          'data-tegaki': 'canvas-fallback',
+          style: { display: 'inline-block', padding: `${PAD_V_CSS} 0.2em` },
         },
         text,
       ),
+    ),
+    h(
+      'div',
+      {
+        'data-tegaki': 'overlay',
+        style: {
+          userSelect: 'auto',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'break-word',
+          paddingRight: 1,
+          WebkitTextFillColor: showOverlay ? undefined : 'transparent',
+          color: showOverlay ? 'rgba(255, 0, 0, 0.4)' : undefined,
+        },
+      },
+      text,
     ),
   );
 }
@@ -250,7 +252,8 @@ export class TegakiEngine {
   }
 
   // --- DOM elements ---
-  private _rootEl: HTMLDivElement;
+  private _rootEl: HTMLElement;
+  private _contentEl: HTMLElement | null = null; // non-null only in non-adopt mode
   private _sentinelEl: HTMLSpanElement;
   private _canvasEl: HTMLCanvasElement;
   private _overlayEl: HTMLDivElement;
@@ -295,14 +298,20 @@ export class TegakiEngine {
   private _mql: MediaQueryList | null = null;
 
   /**
-   * Renders the engine's element tree using a framework-provided `createElement` callback.
-   * This method requires no DOM and can run during SSR.
+   * Returns the props (including style) that should be applied to the container element,
+   * plus the inner content tree rendered via a framework `createElement` callback.
    *
-   * Each element receives a `data-tegaki` attribute so the engine can adopt
+   * Each child element receives a `data-tegaki` attribute so the engine can adopt
    * pre-rendered elements later via `new TegakiEngine(container, { adopt: true })`.
    */
-  static renderElements<T>(options: TegakiEngineOptions, createElement: CreateElementFn<T>): T {
-    return buildElements(options, createElement);
+  static renderElements<T>(
+    options: TegakiEngineOptions,
+    createElement: CreateElementFn<T>,
+  ): { rootProps: Record<string, any>; content: T } {
+    return {
+      rootProps: buildRootProps(options),
+      content: buildChildren(options, createElement),
+    };
   }
 
   constructor(container: HTMLElement, options?: TegakiEngineOptions & { adopt?: boolean }) {
@@ -310,23 +319,35 @@ export class TegakiEngine {
     this._seed = Math.random() * 1000;
 
     // --- Resolve DOM elements ---
+    // The container itself is the root element. In adopt mode, the adapter has
+    // already rendered children inside it. In non-adopt mode, we create them.
+    this._rootEl = container;
+
     if (options?.adopt) {
-      // Adopt pre-rendered elements (created by renderElements)
-      this._rootEl = container.querySelector('[data-tegaki="root"]') as HTMLDivElement;
-      this._sentinelEl = container.querySelector('[data-tegaki="sentinel"]') as HTMLSpanElement;
-      this._canvasEl = container.querySelector('[data-tegaki="canvas"]') as HTMLCanvasElement;
-      this._canvasFallbackEl = container.querySelector('[data-tegaki="canvas-fallback"]') as HTMLSpanElement;
-      this._overlayEl = container.querySelector('[data-tegaki="overlay"]') as HTMLDivElement;
+      // Adopt pre-rendered children (created by renderElements)
     } else {
-      // Create DOM from scratch using the same element structure
-      const root = buildElements(options ?? {}, domCreateElement);
-      container.appendChild(root);
-      this._rootEl = root as unknown as HTMLDivElement;
-      this._sentinelEl = root.querySelector('[data-tegaki="sentinel"]') as HTMLSpanElement;
-      this._canvasEl = root.querySelector('[data-tegaki="canvas"]') as HTMLCanvasElement;
-      this._canvasFallbackEl = root.querySelector('[data-tegaki="canvas-fallback"]') as HTMLSpanElement;
-      this._overlayEl = root.querySelector('[data-tegaki="overlay"]') as HTMLDivElement;
+      // Create DOM from scratch
+      const content = buildChildren(options ?? {}, domCreateElement);
+      container.appendChild(content);
+      this._contentEl = content;
+      // Apply root styles to the container
+      const rootProps = buildRootProps(options ?? {});
+      for (const [key, value] of Object.entries(rootProps.style as Record<string, any>)) {
+        if (value !== undefined && value !== null) {
+          if (key.startsWith('--')) {
+            container.style.setProperty(key, String(value));
+          } else {
+            (container.style as any)[key] = typeof value === 'number' && key !== 'opacity' && key !== 'zIndex' ? `${value}px` : value;
+          }
+        }
+      }
+      container.dataset.tegaki = 'root';
     }
+
+    this._sentinelEl = container.querySelector('[data-tegaki="sentinel"]') as HTMLSpanElement;
+    this._canvasEl = container.querySelector('[data-tegaki="canvas"]') as HTMLCanvasElement;
+    this._canvasFallbackEl = container.querySelector('[data-tegaki="canvas-fallback"]') as HTMLSpanElement;
+    this._overlayEl = container.querySelector('[data-tegaki="overlay"]') as HTMLDivElement;
 
     // --- ResizeObserver ---
     this._resizeObserver = new ResizeObserver(this._onResize);
@@ -372,7 +393,7 @@ export class TegakiEngine {
     return this._timeline.totalDuration > 0 && this.currentTime >= this._timeline.totalDuration;
   }
 
-  get element(): HTMLDivElement {
+  get element(): HTMLElement {
     return this._rootEl;
   }
 
@@ -499,7 +520,8 @@ export class TegakiEngine {
     this._resizeObserver.disconnect();
     this._sentinelEl.removeEventListener('transitionend', this._onSentinelTransition);
     this._mql?.removeEventListener('change', this._onReducedMotionChange);
-    this._rootEl.remove();
+    // Only remove content we created (non-adopt mode). The container is owned by the caller.
+    this._contentEl?.remove();
   }
 
   // =========================================================================

@@ -77,7 +77,8 @@ export function TegakiRenderer(props: TegakiRendererProps) {
   }));
 
   // Compute initial HTML once — after the engine adopts, all updates go through engine.update().
-  const innerHTML = TegakiEngine.renderElements(engineOptions(), solidCreateElement) as unknown as string;
+  const { rootProps, content } = TegakiEngine.renderElements(engineOptions(), solidCreateElement);
+  const innerHTML = content as unknown as string;
 
   onMount(() => {
     engine = new TegakiEngine(container, { ...engineOptions(), adopt: true });
@@ -95,5 +96,5 @@ export function TegakiRenderer(props: TegakiRendererProps) {
     }),
   );
 
-  return <div ref={container!} {...divProps} innerHTML={innerHTML} />;
+  return <div ref={container!} data-tegaki="root" style={rootProps.style} {...divProps} innerHTML={innerHTML} />;
 }

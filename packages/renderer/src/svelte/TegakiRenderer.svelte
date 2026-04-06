@@ -61,11 +61,24 @@ function escapeHtml(s: string): string {
 }
 
 // Compute initial HTML once — after the engine adopts, all updates go through engine.update().
-// biome-ignore lint/correctness/noUnusedVariables: used in Svelte template
-const innerHtml: string = TegakiEngine.renderElements(
+const { rootProps, content: innerHtml } = TegakiEngine.renderElements(
   { text, font, time: timeProp, effects: effects as Record<string, any>, segmentSize, timing, showOverlay, onComplete },
   svelteCreateElement,
 );
+
+function styleToString(style: Record<string, any>): string {
+  return Object.entries(style)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => {
+      const prop = k.startsWith('--') ? k : k.replace(/[A-Z]/g, (m: string) => `-${m.toLowerCase()}`);
+      const val = typeof v === 'number' && !k.startsWith('--') ? `${v}px` : String(v);
+      return `${prop}:${val}`;
+    })
+    .join(';');
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: used in Svelte template
+const rootStyleStr = styleToString(rootProps.style);
 
 $effect(() => {
   if (!container) return;
@@ -85,6 +98,6 @@ $effect(() => {
 });
 </script>
 
-<div bind:this={container} class={className} {...attrs}>
+<div bind:this={container} data-tegaki="root" style={rootStyleStr} class={className} {...attrs}>
   {@html innerHtml}
 </div>
