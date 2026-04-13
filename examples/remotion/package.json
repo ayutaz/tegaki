@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "remotion studio",
     "build": "remotion render src/index.ts Handwriting out/video.mp4",
+    "build:promo": "remotion render src/index.ts Promo out/promo.mp4",
     "upgrade": "remotion upgrade"
   },
   "dependencies": {
