@@ -895,9 +895,8 @@ export class TegakiEngine {
     if (!font?.glyphData || !layout || !fontSize) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const canvasRect = canvas.getBoundingClientRect();
-    const w = canvasRect.width;
-    const h = canvasRect.height;
+    const w = canvas.offsetWidth;
+    const h = canvas.offsetHeight;
 
     const needsResize = canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr);
     if (needsResize) {
