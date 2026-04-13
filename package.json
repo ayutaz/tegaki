@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     ".",
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "scripts": {
     "start": "bun --filter tegaki-generator start",
@@ -33,10 +34,13 @@
     "@typescript/native-preview": "^7.0.0-dev.20260404.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "@remotion/fonts": "^4",
+    "remotion": "^4",
     "solid-js": "^1.9.12",
     "svelte": "^5.55.1",
     "tegaki": "workspace:*",
-    "vue": "^3.5.32"
+    "vue": "^3.5.32",
+    "zod": "^4"
   },
   "lint-staged": {
     "*": [

@@ -37,6 +37,7 @@ export default defineConfig({
             { label: 'Astro', slug: 'frameworks/astro' },
             { label: 'Web Components', slug: 'frameworks/web-components' },
             { label: 'Vanilla JS', slug: 'frameworks/vanilla' },
+            { label: 'Remotion', slug: 'frameworks/remotion' },
           ],
         },
         {

@@ -8,7 +8,7 @@ import glyphData from '../packages/renderer/fonts/tangerine/glyphData.json' with
 const text = 'Hello World';
 const ascender = 960;
 const descender = -300;
-const emHeight = ascender - descender;
+const _emHeight = ascender - descender;
 const lineCap = 'round';
 const timeScale = 1.4;
 const charGap = 30;
