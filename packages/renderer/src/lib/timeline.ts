@@ -10,9 +10,21 @@ export interface TimelineConfig {
   lineGap?: number;
   /** Duration for characters without glyph data (seconds). Default: `0.2` */
   unknownDuration?: number;
+  /**
+   * Easing function for each stroke's animation progress `(0–1) → (0–1)`.
+   * Applied per-stroke to map linear draw progress to eased progress.
+   * Default: ease-out exponential (`1 - 2^(-10t)`).
+   */
+  strokeEasing?: (t: number) => number;
+  /**
+   * Easing function for each glyph's local time progress `(0–1) → (0–1)`.
+   * Applied per-glyph to map linear time within the glyph to eased time.
+   * Default: linear (no easing).
+   */
+  glyphEasing?: (t: number) => number;
 }
 
-const DEFAULTS: Required<TimelineConfig> = {
+const DEFAULTS = {
   glyphGap: 0.1,
   wordGap: 0.15,
   lineGap: 0.3,

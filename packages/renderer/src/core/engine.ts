@@ -743,7 +743,11 @@ export class TegakiEngine {
         const glyph = font.glyphData[char];
 
         if (glyph && entry.hasGlyph) {
-          const localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
+          let localTime = Math.max(0, Math.min(currentTime - entry.offset, entry.duration));
+          const glyphEasing = this._timing?.glyphEasing;
+          if (glyphEasing && entry.duration > 0) {
+            localTime = glyphEasing(localTime / entry.duration) * entry.duration;
+          }
           const glyphY = y + halfLeading;
           drawGlyph(
             ctx,
@@ -762,6 +766,7 @@ export class TegakiEngine {
             this._resolvedEffects,
             this._seed + charIdx,
             this._segmentSize,
+            this._timing?.strokeEasing,
           );
         } else if (!entry.hasGlyph && currentTime >= entry.offset + entry.duration) {
           const baseline = y + halfLeading + (font.ascender / font.unitsPerEm) * fontSize;

@@ -74,6 +74,11 @@ function noise1d(x: number, seed: number): number {
   return hash(i + seed * 7919) * (1 - t) + hash(i + 1 + seed * 7919) * t;
 }
 
+/** Default stroke easing: ease-out exponential. */
+function defaultStrokeEasing(t: number): number {
+  return 1 - (1 - t) * (1 - t); // Ease out quad
+}
+
 /**
  * Draw a single glyph's strokes onto a canvas context, animated up to `localTime`.
  * `localTime` is seconds relative to this glyph's start (0 = glyph begins).
@@ -88,6 +93,7 @@ export function drawGlyph(
   effects: ResolvedEffect[] = [],
   seed = 0,
   segmentSize?: number,
+  strokeEasing: ((t: number) => number) | undefined = defaultStrokeEasing,
 ) {
   const scale = pos.fontSize / pos.unitsPerEm;
   const ox = pos.x;
@@ -157,7 +163,8 @@ export function drawGlyph(
   for (const stroke of glyph.s) {
     if (localTime < stroke.d) continue;
     const elapsed = localTime - stroke.d;
-    const progress = Math.min(elapsed / stroke.a, 1);
+    const linearProgress = Math.min(elapsed / stroke.a, 1);
+    const progress = strokeEasing ? strokeEasing(linearProgress) : linearProgress;
 
     const pts = stroke.p;
     if (pts.length === 0) continue;
