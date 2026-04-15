@@ -30,6 +30,26 @@ import {
 
 type PreviewMode = 'glyph' | 'text';
 
+type EasingPreset = { key: string; label: string; fn: ((t: number) => number) | undefined };
+
+const EASING_PRESETS: EasingPreset[] = [
+  { key: 'default', label: 'Default', fn: undefined },
+  { key: 'linear', label: 'Linear', fn: (t) => t },
+  { key: 'ease-out-quad', label: 'Ease Out Quad', fn: (t) => 1 - (1 - t) * (1 - t) },
+  { key: 'ease-out-cubic', label: 'Ease Out Cubic', fn: (t) => 1 - (1 - t) ** 3 },
+  { key: 'ease-out-expo', label: 'Ease Out Expo', fn: (t) => (t >= 1 ? 1 : 1 - 2 ** (-10 * t)) },
+  { key: 'ease-in-quad', label: 'Ease In Quad', fn: (t) => t * t },
+  { key: 'ease-in-cubic', label: 'Ease In Cubic', fn: (t) => t ** 3 },
+  { key: 'ease-in-out-quad', label: 'Ease In-Out Quad', fn: (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2) },
+  { key: 'ease-in-out-cubic', label: 'Ease In-Out Cubic', fn: (t) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2) },
+];
+
+const EASING_MAP = new Map(EASING_PRESETS.map((p) => [p.key, p.fn]));
+
+function getEasingFn(key: string): ((t: number) => number) | undefined {
+  return EASING_MAP.get(key);
+}
+
 type Stage =
   | 'outline'
   | 'flattened'
@@ -137,6 +157,8 @@ export function PreviewApp() {
   const [customEffects, setCustomEffects] = useState<CustomEffect[]>(initialUrlState.customEffects);
   const [segmentSize, setSegmentSize] = useState(initialUrlState.segmentSize);
   const [catchUp, setCatchUp] = useState(initialUrlState.catchUp);
+  const [strokeEasing, setStrokeEasing] = useState(initialUrlState.strokeEasing);
+  const [glyphEasing, setGlyphEasing] = useState(initialUrlState.glyphEasing);
 
   // Animation state (lifted up so controls live outside the canvas area)
   const [animPlaying, setAnimPlaying] = useState(true);
@@ -299,6 +321,8 @@ export function PreviewApp() {
         customEffects,
         segmentSize,
         catchUp,
+        strokeEasing,
+        glyphEasing,
       });
     }, 300);
     return () => clearTimeout(syncTimerRef.current);
@@ -320,6 +344,8 @@ export function PreviewApp() {
     effectsState,
     customEffects,
     segmentSize,
+    strokeEasing,
+    glyphEasing,
   ]);
 
   // Auto-load font on mount (from URL state or default)
@@ -859,6 +885,10 @@ export function PreviewApp() {
             onCustomEffectsChange={setCustomEffects}
             segmentSize={segmentSize}
             onSegmentSizeChange={setSegmentSize}
+            strokeEasing={strokeEasing}
+            onStrokeEasingChange={setStrokeEasing}
+            glyphEasing={glyphEasing}
+            onGlyphEasingChange={setGlyphEasing}
           />
         )}
       </main>
@@ -1131,6 +1161,10 @@ function TextPreview({
   onCustomEffectsChange,
   segmentSize,
   onSegmentSizeChange,
+  strokeEasing,
+  onStrokeEasingChange,
+  glyphEasing,
+  onGlyphEasingChange,
 }: {
   fontInfo: ParsedFontInfo | null;
   fontBuffer: ArrayBuffer | null;
@@ -1159,6 +1193,10 @@ function TextPreview({
   onCustomEffectsChange: (v: CustomEffect[]) => void;
   segmentSize: number;
   onSegmentSizeChange: (v: number) => void;
+  strokeEasing: string;
+  onStrokeEasingChange: (v: string) => void;
+  glyphEasing: string;
+  onGlyphEasingChange: (v: string) => void;
 }) {
   const [playing, setPlaying] = useState(true);
   const [displayTime, setDisplayTime] = useState(0);
@@ -1373,6 +1411,13 @@ function TextPreview({
         ? { mode: 'uncontrolled' as const, speed: animSpeed, loop, catchUp: catchUp || undefined }
         : 'css';
 
+  const timingConfig = useMemo(() => {
+    const strokeFn = getEasingFn(strokeEasing);
+    const glyphFn = getEasingFn(glyphEasing);
+    if (strokeFn === undefined && glyphFn === undefined) return undefined;
+    return { ...(strokeFn !== undefined ? { strokeEasing: strokeFn } : {}), ...(glyphFn !== undefined ? { glyphEasing: glyphFn } : {}) };
+  }, [strokeEasing, glyphEasing]);
+
   const activeEffectCount = effects ? Object.keys(effects).length : 0;
 
   const handleCopyEffects = useCallback(() => {
@@ -1434,6 +1479,7 @@ function TextPreview({
                 showOverlay={showOverlay}
                 effects={effects}
                 segmentSize={segmentSize}
+                timing={timingConfig}
               />
             )}
           </div>
@@ -1937,6 +1983,38 @@ function TextPreview({
           <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
             <input type="checkbox" checked={showOverlay} onChange={(e) => onShowOverlayChange(e.target.checked)} />
             Overlay
+          </label>
+
+          <span className="border-l border-gray-200 h-6" />
+
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Stroke easing
+            <select
+              className="px-1 py-0.5 border border-gray-300 rounded text-xs bg-white"
+              value={strokeEasing}
+              onChange={(e) => onStrokeEasingChange(e.target.value)}
+            >
+              {EASING_PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.key === 'default' ? 'Default (Ease Out Quad)' : p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            Glyph easing
+            <select
+              className="px-1 py-0.5 border border-gray-300 rounded text-xs bg-white"
+              value={glyphEasing}
+              onChange={(e) => onGlyphEasingChange(e.target.value)}
+            >
+              {EASING_PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.key === 'default' ? 'Default (Linear)' : p.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <span className="border-l border-gray-200 h-6" />

@@ -62,6 +62,8 @@ export interface UrlState {
   effectsState: EffectsState;
   customEffects: CustomEffect[];
   segmentSize: number;
+  strokeEasing: string;
+  glyphEasing: string;
 }
 
 export const URL_DEFAULTS: UrlState = {
@@ -82,6 +84,8 @@ export const URL_DEFAULTS: UrlState = {
   effectsState: DEFAULT_EFFECTS_STATE,
   customEffects: [],
   segmentSize: 2,
+  strokeEasing: 'default',
+  glyphEasing: 'default',
 };
 
 // Short keys for compact URLs — only non-default values are written
@@ -138,6 +142,8 @@ export function parseUrlState(): UrlState {
     } catch {}
   }
   if (p.has('ss')) state.segmentSize = Number(p.get('ss'));
+  if (p.has('se')) state.strokeEasing = p.get('se')!;
+  if (p.has('ge')) state.glyphEasing = p.get('ge')!;
 
   // Pipeline options — read short keys
   for (const [short, long] of Object.entries(REVERSE_OPTION_KEYS)) {
@@ -178,6 +184,8 @@ export function buildUrlParams(state: UrlState): URLSearchParams {
     p.set('cx', JSON.stringify(state.customEffects));
   }
   if (state.segmentSize !== URL_DEFAULTS.segmentSize) p.set('ss', String(state.segmentSize));
+  if (state.strokeEasing !== URL_DEFAULTS.strokeEasing) p.set('se', state.strokeEasing);
+  if (state.glyphEasing !== URL_DEFAULTS.glyphEasing) p.set('ge', state.glyphEasing);
 
   // Pipeline options — only non-defaults
   for (const [long, short] of Object.entries(OPTION_KEYS)) {

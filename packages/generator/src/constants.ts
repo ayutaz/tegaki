@@ -20,6 +20,10 @@ export const EXAMPLE_FONTS = [
   'Satisfy',
   'Shadows Into Light',
   'Tangerine',
+  'Noto Sans JP',
+  'Noto Sans KR',
+  'Noto Sans SC',
+  'Rubik',
 ];
 
 export const CACHE_DIR = '.cache/fonts';
