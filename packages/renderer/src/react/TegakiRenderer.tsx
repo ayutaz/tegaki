@@ -66,6 +66,7 @@ export function TegakiRenderer<const C extends ElementType = 'div', const E exte
     segmentSize,
     timing,
     showOverlay,
+    direction,
     editable,
     onTextChange,
     ...elementProps
@@ -94,6 +95,7 @@ export function TegakiRenderer<const C extends ElementType = 'div', const E exte
     segmentSize,
     timing,
     showOverlay,
+    direction,
     onComplete,
   };
   const { rootProps, content } = TegakiEngine.renderElements(engineOptions, reactCreateElement);

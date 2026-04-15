@@ -14,6 +14,7 @@ const props = defineProps<{
   segmentSize?: number;
   showOverlay?: boolean;
   onComplete?: () => void;
+  direction?: 'ltr' | 'rtl';
 }>();
 
 defineOptions({ inheritAttrs: false });
@@ -29,6 +30,7 @@ const engineOptions = computed<TegakiEngineOptions>(() => ({
   segmentSize: props.segmentSize,
   timing: props.timing,
   showOverlay: props.showOverlay,
+  direction: props.direction,
   onComplete: props.onComplete,
 }));
 

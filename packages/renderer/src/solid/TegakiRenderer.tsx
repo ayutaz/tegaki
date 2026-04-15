@@ -60,6 +60,7 @@ export function TegakiRenderer(props: TegakiRendererProps) {
     'segmentSize',
     'timing',
     'showOverlay',
+    'direction',
     'ref',
   ]);
 
@@ -74,6 +75,7 @@ export function TegakiRenderer(props: TegakiRendererProps) {
     segmentSize: local.segmentSize,
     timing: local.timing,
     showOverlay: local.showOverlay,
+    direction: local.direction,
     onComplete: local.onComplete,
   }));
 

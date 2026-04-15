@@ -15,6 +15,7 @@ import type { TegakiBundle } from '../types.ts';
  * - `loop-gap`: pause between loop iterations (seconds, uncontrolled mode, default `0`)
  * - `segment-size`: segment size for rendering
  * - `show-overlay`: show debug overlay
+ * - `direction`: text direction (`"ltr"` or `"rtl"`)
  *
  * The `easing` option is not exposed as an attribute (it takes a function);
  * set it via the `time` JS property for full uncontrolled-mode configuration.
@@ -31,6 +32,7 @@ const OBSERVED_ATTRS = [
   'loop-gap',
   'segment-size',
   'show-overlay',
+  'direction',
 ] as const;
 
 export class TegakiElement extends HTMLElement {
@@ -166,6 +168,7 @@ export class TegakiElement extends HTMLElement {
     const font = this._font ?? (fontAttr || undefined);
     const time = this._resolveTime();
 
+    const directionAttr = this.getAttribute('direction');
     return {
       text,
       font,
@@ -174,6 +177,7 @@ export class TegakiElement extends HTMLElement {
       timing: this._timing,
       segmentSize: this._getNumberAttr('segment-size'),
       showOverlay: this.hasAttribute('show-overlay'),
+      direction: directionAttr === 'rtl' || directionAttr === 'ltr' ? directionAttr : undefined,
       onComplete: this._onComplete,
     };
   }

@@ -92,6 +92,8 @@ export interface TegakiEngineOptions {
   segmentSize?: number;
   showOverlay?: boolean;
   onComplete?: () => void;
+  /** Text direction. When set, applies the CSS `direction` property to the container. */
+  direction?: 'ltr' | 'rtl';
 }
 
 // ---------------------------------------------------------------------------

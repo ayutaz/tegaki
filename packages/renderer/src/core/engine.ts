@@ -66,6 +66,7 @@ export class TegakiEngine {
   private _segmentSize: number | undefined;
   private _showOverlay = false;
   private _onComplete: (() => void) | undefined;
+  private _direction: 'ltr' | 'rtl' | undefined;
 
   // --- Derived / cached ---
   private _resolvedEffects: ResolvedEffect[] = resolveEffects(undefined);
@@ -323,6 +324,12 @@ export class TegakiEngine {
       dirtyRender = true;
     }
 
+    if ('direction' in options && options.direction !== this._direction) {
+      this._direction = options.direction;
+      dirtyLayout = true;
+      dirtyRender = true;
+    }
+
     if ('showOverlay' in options && options.showOverlay !== this._showOverlay) {
       this._showOverlay = options.showOverlay ?? false;
       this._updateOverlayStyle();
@@ -375,6 +382,9 @@ export class TegakiEngine {
   private _updateDom(): void {
     // Font family
     this._rootEl.style.fontFamily = this._font?.family ?? '';
+
+    // Direction
+    this._rootEl.style.direction = this._direction ?? '';
 
     // CSS custom properties
     this._updateCssProperties();
@@ -541,7 +551,7 @@ export class TegakiEngine {
 
   private _recomputeLayout(): void {
     if (this._fontReady && this._font?.family && this._fontSize && this._containerWidth && this._text) {
-      const key = `${this._text}\0${this._font.family}\0${this._fontSize}\0${this._lineHeight}\0${this._containerWidth}`;
+      const key = `${this._text}\0${this._font.family}\0${this._fontSize}\0${this._lineHeight}\0${this._containerWidth}\0${this._direction ?? ''}`;
       if (key === this._layoutKey) return;
       this._layoutKey = key;
       this._layout = computeTextLayout(this._overlayEl, this._fontSize);

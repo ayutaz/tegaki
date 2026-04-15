@@ -42,6 +42,10 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
   const chars = graphemes(text);
   if (!chars.length) return { lines: [], charOffsets: [], charWidths: [] };
 
+  // Use element's left edge as reference so offsets are direction-agnostic.
+  // For LTR the first char is near the left edge; for RTL it's near the right —
+  // either way, subtracting elLeft produces correct visual x-positions.
+  const elLeft = el.getBoundingClientRect().left;
   const range = document.createRange();
 
   const charOffsets: number[] = [];
@@ -49,7 +53,6 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
   const lines: number[][] = [];
   let currentLine: number[] = [];
   let prevTop = -Infinity;
-  let lineStartX = 0;
   let utf16Offset = 0;
 
   for (let i = 0; i < chars.length; i++) {
@@ -88,10 +91,9 @@ function measureElement(el: HTMLElement, fontSize: number): TextLayout {
 
     if (currentLine.length === 0) {
       prevTop = rect.top;
-      lineStartX = rect.left;
     }
 
-    charOffsets.push((rect.left - lineStartX) / fontSize);
+    charOffsets.push((rect.left - elLeft) / fontSize);
     charWidths.push(rect.width / fontSize);
     currentLine.push(i);
   }

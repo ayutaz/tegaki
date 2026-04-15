@@ -22,7 +22,7 @@
     "checks": "bun check && bun typecheck && bun run test",
     "prepare": "husky",
     "changeset": "changeset",
-    "changeset:version": "changeset version",
+    "changeset:version": "changeset version && bun scripts/sync-versions.ts",
     "changeset:status": "changeset status",
     "release": "changeset version && bun scripts/sync-versions.ts"
   },
