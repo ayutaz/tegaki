@@ -1,3 +1,8 @@
+// Sub-component of stage 4 (skeletonize) — see commands/generate.ts.
+// Walks a 1-pixel skeleton bitmap into ordered polylines, prunes short spurs,
+// resolves junctions by direction matching, and simplifies with Ramer-Douglas-Peucker.
+// Invoked from skeletonize.ts on the thinning path; the voronoi path bypasses this.
+
 import type { Point } from 'tegaki';
 import {
   JUNCTION_ALIGNMENT_COS,

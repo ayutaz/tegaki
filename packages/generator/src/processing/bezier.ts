@@ -1,5 +1,26 @@
-import type { PathCommand, Point } from 'tegaki';
+// Stage 1 of the pipeline — see commands/generate.ts.
+// Flatten opentype.js path commands (M / L / Q / C / Z) into polyline sub-paths
+// in font-unit coordinates, using adaptive de Casteljau subdivision.
+
+import type { BBox, PathCommand, Point } from 'tegaki';
 import { BEZIER_TOLERANCE } from '../constants.ts';
+
+/** Bounding box of all points across the flattened sub-paths. */
+export function computePathBBox(subPaths: Point[][]): BBox {
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+  for (const path of subPaths) {
+    for (const p of path) {
+      if (p.x < x1) x1 = p.x;
+      if (p.y < y1) y1 = p.y;
+      if (p.x > x2) x2 = p.x;
+      if (p.y > y2) y2 = p.y;
+    }
+  }
+  return { x1, y1, x2, y2 };
+}
 
 function distSq(a: Point, b: Point): number {
   const dx = a.x - b.x;

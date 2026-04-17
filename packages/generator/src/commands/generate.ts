@@ -2,71 +2,77 @@ import opentype from 'opentype.js';
 import { type BBox, BUNDLE_VERSION, type FontOutput, type LineCap, type Point, type Stroke } from 'tegaki';
 import * as z from 'zod/v4';
 import {
+  BEZIER_TOLERANCE,
   charsHash,
   DEFAULT_FONT_FAMILY,
   DEFAULT_RESOLUTION,
+  DISTANCE_TRANSFORM_METHOD,
   DRAWING_SPEED,
+  JUNCTION_CLEANUP_MAX_ITERATIONS,
+  MERGE_THRESHOLD_RATIO,
+  RDP_TOLERANCE,
   SKELETON_METHOD,
-  type SkeletonMethod,
+  SPUR_LENGTH_RATIO,
   STROKE_PAUSE,
+  THIN_MAX_ITERATIONS,
+  TRACE_CURVATURE_BIAS,
+  TRACE_LOOKBACK,
+  VORONOI_SAMPLING_INTERVAL,
 } from '../constants.ts';
 import { extractGlyph, inferLineCap } from '../font/parse.ts';
-import { flattenPath } from '../processing/bezier.ts';
+import { computePathBBox, flattenPath } from '../processing/bezier.ts';
+import { toFontUnits } from '../processing/font-units.ts';
 import { rasterize } from '../processing/rasterize.ts';
-import {
-  cleanJunctionClusters,
-  guoHallThin,
-  leeThin,
-  medialAxisThin,
-  morphologicalThin,
-  restoreErasedComponents,
-  type ThinFn,
-  zhangSuenThin,
-} from '../processing/skeletonize.ts';
+import { skeletonize } from '../processing/skeletonize.ts';
 import { orderStrokes } from '../processing/stroke-order.ts';
-import { traceAndSimplify } from '../processing/trace.ts';
-import { voronoiMedialAxis } from '../processing/voronoi-medial-axis.ts';
 import { computeInverseDistanceTransform } from '../processing/width.ts';
 
-// ── Pipeline types & defaults ──────────────────────────────────────────────
+// ── Pipeline option schema ─────────────────────────────────────────────────
+// `PipelineOptions` and `DEFAULT_OPTIONS` are derived from this schema so the
+// runtime defaults, the static type, and the CLI flag parsing all stay in sync.
 
-export interface PipelineOptions {
-  resolution: number;
-  skeletonMethod: SkeletonMethod;
-  lineCap: LineCap | 'auto';
-  bezierTolerance: number;
-  rdpTolerance: number;
-  spurLengthRatio: number;
-  mergeThresholdRatio: number;
-  traceLookback: number;
-  curvatureBias: number;
-  thinMaxIterations: number;
-  junctionCleanupIterations: number;
-  dtMethod: 'euclidean' | 'chamfer';
-  voronoiSamplingInterval: number;
-  drawingSpeed: number;
-  strokePause: number;
-  ligatures: boolean;
-}
+const pipelineOptionsSchema = z.object({
+  resolution: z.number().default(DEFAULT_RESOLUTION).describe('Bitmap resolution for skeletonization').meta({ flags: 'r' }),
+  skeletonMethod: z
+    .enum(['zhang-suen', 'guo-hall', 'medial-axis', 'lee', 'thin', 'voronoi'])
+    .default(SKELETON_METHOD)
+    .describe('Skeletonization algorithm'),
+  lineCap: z
+    .enum(['auto', 'round', 'butt', 'square'])
+    .default('auto')
+    .describe('Stroke line cap style (auto infers from font properties)')
+    .meta({ flags: 'l' }),
+  bezierTolerance: z.number().default(BEZIER_TOLERANCE).describe('Bezier curve flattening tolerance'),
+  rdpTolerance: z.number().default(RDP_TOLERANCE).describe('Ramer-Douglas-Peucker simplification tolerance'),
+  spurLengthRatio: z.number().default(SPUR_LENGTH_RATIO).describe('Minimum spur length as fraction of bitmap size'),
+  mergeThresholdRatio: z.number().default(MERGE_THRESHOLD_RATIO).describe('Merge threshold as fraction of bitmap size'),
+  traceLookback: z.number().default(TRACE_LOOKBACK).describe('Lookback window for junction direction estimation'),
+  curvatureBias: z.number().default(TRACE_CURVATURE_BIAS).describe('Curvature extrapolation weight at junctions'),
+  thinMaxIterations: z.number().default(THIN_MAX_ITERATIONS).describe('Max iterations for morphological thinning'),
+  junctionCleanupIterations: z.number().default(JUNCTION_CLEANUP_MAX_ITERATIONS).describe('Max iterations for junction cluster cleanup'),
+  dtMethod: z.enum(['euclidean', 'chamfer']).default(DISTANCE_TRANSFORM_METHOD).describe('Distance transform algorithm'),
+  voronoiSamplingInterval: z.number().default(VORONOI_SAMPLING_INTERVAL).describe('Voronoi boundary sampling interval'),
+  drawingSpeed: z.number().default(DRAWING_SPEED).describe('Drawing speed in font units per second'),
+  strokePause: z.number().default(STROKE_PAUSE).describe('Pause duration in seconds between strokes'),
+  ligatures: z.boolean().default(false).describe('Enable OpenType ligatures (calt, liga) in the font bundle'),
+});
 
-export const DEFAULT_OPTIONS: PipelineOptions = {
-  resolution: 400,
-  skeletonMethod: 'zhang-suen',
-  lineCap: 'auto',
-  bezierTolerance: 0.5,
-  rdpTolerance: 1.5,
-  spurLengthRatio: 0.08,
-  mergeThresholdRatio: 0.08,
-  traceLookback: 12,
-  curvatureBias: 0.5,
-  thinMaxIterations: 25,
-  junctionCleanupIterations: 5,
-  dtMethod: 'chamfer',
-  voronoiSamplingInterval: 2,
-  drawingSpeed: 3000,
-  strokePause: 0.15,
-  ligatures: false,
-};
+export type PipelineOptions = z.infer<typeof pipelineOptionsSchema>;
+export const DEFAULT_OPTIONS: PipelineOptions = pipelineOptionsSchema.parse({});
+
+// ── CLI argument schema ───────────────────────────────────────────────────
+
+export const generateArgsSchema = pipelineOptionsSchema.extend({
+  family: z.string().default(DEFAULT_FONT_FAMILY).describe('Google Fonts family name'),
+  output: z.string().optional().describe('Output folder path for the font bundle').meta({ flags: 'o' }),
+  chars: z
+    .union([z.boolean(), z.string()])
+    .default(false)
+    .describe('Characters to process. `true` processes every glyph in the font, `false` uses the default character set.')
+    .meta({ flags: 'c' }),
+  force: z.boolean().default(false).describe('Re-download font even if cached').meta({ flags: 'f' }),
+  debug: z.boolean().default(false).describe('Output intermediate steps (bitmap, skeleton, trace, animation SVGs)').meta({ flags: 'd' }),
+});
 
 export interface PipelineResult {
   char: string;
@@ -173,114 +179,37 @@ export function parseFont(buffer: ArrayBuffer, extraBuffers?: ArrayBuffer[]): Pa
   };
 }
 
-function computePathBBox(subPaths: Point[][]): BBox {
-  let x1 = Infinity;
-  let y1 = Infinity;
-  let x2 = -Infinity;
-  let y2 = -Infinity;
-  for (const path of subPaths) {
-    for (const p of path) {
-      if (p.x < x1) x1 = p.x;
-      if (p.y < y1) y1 = p.y;
-      if (p.x > x2) x2 = p.x;
-      if (p.y > y2) y2 = p.y;
-    }
-  }
-  return { x1, y1, x2, y2 };
-}
-
-/** Run the full processing pipeline for a single glyph */
+/**
+ * Run the full processing pipeline for a single glyph.
+ *
+ * Each stage is one function call producing the input to the next; intermediate
+ * outputs are also returned in PipelineResult so the website preview and debug
+ * visualizers can render them. Stage definitions live in packages/generator/src/processing/.
+ */
 export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: PipelineOptions): PipelineResult | null {
   const rawGlyph = extractGlyph(fontInfo.font, char, fontInfo.extraFonts);
   if (!rawGlyph) return null;
 
   const lineCap: LineCap = options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap;
 
-  // Stage 1: Flatten bezier curves
+  // Stage 1: Flatten bezier outline commands into polyline sub-paths (font units).
   const subPaths = flattenPath(rawGlyph.commands, options.bezierTolerance);
   const pathBBox = computePathBBox(subPaths);
 
-  // Stage 2: Rasterize
+  // Stage 2: Rasterize flattened paths into a binary bitmap.
   const raster = rasterize(subPaths, pathBBox, options.resolution);
 
-  // Stage 3 & 4: Skeletonize + distance transform
-  let polylines: Point[][];
-  let skeleton: Uint8Array;
-  let voronoiWidths: number[][] | undefined;
-
+  // Stage 3: Compute inverse distance transform — per-pixel stroke radius field.
   const inverseDT = computeInverseDistanceTransform(raster.bitmap, raster.width, raster.height, options.dtMethod);
 
-  if (options.skeletonMethod === 'voronoi') {
-    const vResult = voronoiMedialAxis(subPaths, pathBBox, raster.transform, raster.width, raster.height, options.voronoiSamplingInterval);
-    polylines = vResult.polylines;
-    voronoiWidths = vResult.widths;
-    // For voronoi, create a skeleton bitmap from polylines for visualization
-    skeleton = new Uint8Array(raster.width * raster.height);
-    for (const pl of polylines) {
-      for (const p of pl) {
-        const px = Math.round(p.x);
-        const py = Math.round(p.y);
-        if (px >= 0 && px < raster.width && py >= 0 && py < raster.height) {
-          skeleton[py * raster.width + px] = 1;
-        }
-      }
-    }
-  } else {
-    // TypeScript thinning
-    const thinFns: Record<string, ThinFn> = {
-      'zhang-suen': zhangSuenThin,
-      'guo-hall': guoHallThin,
-      lee: leeThin,
-      thin: (bmp, w, h) => morphologicalThin(bmp, w, h, options.thinMaxIterations),
-    };
-    const thinFn = thinFns[options.skeletonMethod] ?? zhangSuenThin;
+  // Stage 4: Extract skeleton + centerline polylines (voronoi or thinning+trace).
+  const { skeleton, polylines, widths } = skeletonize({ subPaths, pathBBox, raster, inverseDT, options });
 
-    if (options.skeletonMethod === 'medial-axis') {
-      skeleton = medialAxisThin(raster.bitmap, inverseDT, raster.width, raster.height);
-    } else {
-      const raw = thinFn(raster.bitmap, raster.width, raster.height);
-      skeleton = cleanJunctionClusters(raw, inverseDT, raster.width, raster.height, thinFn, options.junctionCleanupIterations);
-    }
+  // Stage 5: Order strokes (draw order + direction) and assign per-point time `t`.
+  const strokes = orderStrokes(polylines, inverseDT, raster.width, 3, widths);
 
-    restoreErasedComponents(raster.bitmap, skeleton, inverseDT, raster.width, raster.height);
-
-    // Stage 5: Trace
-    const spurMinLength = Math.min(Math.round(Math.max(raster.width, raster.height) * options.spurLengthRatio), 10);
-    polylines = traceAndSimplify(
-      skeleton,
-      raster.width,
-      raster.height,
-      options.rdpTolerance,
-      spurMinLength,
-      options.traceLookback,
-      options.curvatureBias,
-    );
-  }
-
-  // Stage 6: Order strokes
-  const strokes = orderStrokes(polylines, inverseDT, raster.width, 3, voronoiWidths);
-
-  // Stage 7: Convert to font units
-  const scale = raster.transform.scaleX;
-  let timeOffset = 0;
-  const strokesFontUnits = strokes.map((s, i) => {
-    const length = Math.round((s.length / scale) * 100) / 100;
-    const animationDuration = Math.max(Math.round((length / options.drawingSpeed) * 1000) / 1000, 0.001);
-    const delay = Math.round(timeOffset * 1000) / 1000;
-    timeOffset += animationDuration + (i < strokes.length - 1 ? options.strokePause : 0);
-    return {
-      ...s,
-      length,
-      animationDuration,
-      delay,
-      points: s.points.map((p) => ({
-        x: Math.round((p.x / raster.transform.scaleX + raster.transform.offsetX) * 100) / 100,
-        y: Math.round((p.y / raster.transform.scaleY + raster.transform.offsetY) * 100) / 100,
-        t: Math.round(p.t * 1000) / 1000,
-        width: Math.round((p.width / scale) * 100) / 100,
-      })),
-    };
-  });
+  // Stage 6: Convert to font units and compute animation timing.
+  const strokesFontUnits = toFontUnits(strokes, raster.transform, options.drawingSpeed, options.strokePause);
 
   return {
     char,
@@ -304,46 +233,6 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
     strokesFontUnits,
   };
 }
-
-// ── CLI argument schema ───────────────────────────────────────────────────
-
-export const generateArgsSchema = z.object({
-  family: z.string().default(DEFAULT_FONT_FAMILY).describe('Google Fonts family name'),
-  output: z.string().optional().describe('Output folder path for the font bundle').meta({ flags: 'o' }),
-  resolution: z.number().default(DEFAULT_RESOLUTION).describe('Bitmap resolution for skeletonization').meta({ flags: 'r' }),
-  chars: z
-    .union([z.boolean(), z.string()])
-    .default(false)
-    .describe('Characters to process. `true` processes every glyph in the font, `false` uses the default character set.')
-    .meta({ flags: 'c' }),
-  force: z.boolean().default(false).describe('Re-download font even if cached').meta({ flags: 'f' }),
-  debug: z.boolean().default(false).describe('Output intermediate steps (bitmap, skeleton, trace, animation SVGs)').meta({ flags: 'd' }),
-  lineCap: z
-    .enum(['auto', 'round', 'butt', 'square'])
-    .default('auto')
-    .describe('Stroke line cap style (auto infers from font properties)')
-    .meta({ flags: 'l' }),
-  skeletonMethod: z
-    .enum(['zhang-suen', 'guo-hall', 'medial-axis', 'lee', 'thin', 'voronoi'])
-    .default(SKELETON_METHOD)
-    .describe('Skeletonization algorithm'),
-  bezierTolerance: z.number().default(DEFAULT_OPTIONS.bezierTolerance).describe('Bezier curve flattening tolerance'),
-  rdpTolerance: z.number().default(DEFAULT_OPTIONS.rdpTolerance).describe('Ramer-Douglas-Peucker simplification tolerance'),
-  spurLengthRatio: z.number().default(DEFAULT_OPTIONS.spurLengthRatio).describe('Minimum spur length as fraction of bitmap size'),
-  mergeThresholdRatio: z.number().default(DEFAULT_OPTIONS.mergeThresholdRatio).describe('Merge threshold as fraction of bitmap size'),
-  traceLookback: z.number().default(DEFAULT_OPTIONS.traceLookback).describe('Lookback window for junction direction estimation'),
-  curvatureBias: z.number().default(DEFAULT_OPTIONS.curvatureBias).describe('Curvature extrapolation weight at junctions'),
-  thinMaxIterations: z.number().default(DEFAULT_OPTIONS.thinMaxIterations).describe('Max iterations for morphological thinning'),
-  junctionCleanupIterations: z
-    .number()
-    .default(DEFAULT_OPTIONS.junctionCleanupIterations)
-    .describe('Max iterations for junction cluster cleanup'),
-  dtMethod: z.enum(['euclidean', 'chamfer']).default(DEFAULT_OPTIONS.dtMethod).describe('Distance transform algorithm'),
-  voronoiSamplingInterval: z.number().default(DEFAULT_OPTIONS.voronoiSamplingInterval).describe('Voronoi boundary sampling interval'),
-  drawingSpeed: z.number().default(DRAWING_SPEED).describe('Drawing speed in font units per second'),
-  strokePause: z.number().default(STROKE_PAUSE).describe('Pause duration in seconds between strokes'),
-  ligatures: z.boolean().default(false).describe('Enable OpenType ligatures (calt, liga) in the font bundle'),
-});
 
 // ── Bundle extraction (pure — no file I/O) ────────────────────────────────
 

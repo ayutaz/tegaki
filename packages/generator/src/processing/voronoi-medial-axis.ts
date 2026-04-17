@@ -1,3 +1,8 @@
+// Sub-component of stage 4 (skeletonize) — see commands/generate.ts.
+// Alternative to thinning+trace: builds the medial axis from the Voronoi
+// diagram of sampled outline points, producing polylines + per-point widths
+// in a single pass. Invoked from skeletonize.ts when `skeletonMethod=voronoi`.
+
 import { Delaunay } from 'd3-delaunay';
 import type { BBox, Point } from 'tegaki';
 

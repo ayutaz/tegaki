@@ -1,3 +1,8 @@
+// Stage 3 of the pipeline — see commands/generate.ts.
+// Distance transform: for each pixel inside the shape, the value is the distance
+// to the nearest boundary. Used by the skeletonization stage to bias thinning
+// toward the medial axis and to look up per-point stroke width downstream.
+
 import { DISTANCE_TRANSFORM_METHOD } from '../constants.ts';
 
 /**

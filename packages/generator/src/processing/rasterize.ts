@@ -1,3 +1,8 @@
+// Stage 2 of the pipeline — see commands/generate.ts.
+// Rasterize flattened sub-paths into a binary bitmap using a scanline fill
+// with the nonzero winding rule. Returns the bitmap plus the bitmap↔font-unit
+// transform so downstream stages can map coordinates back.
+
 import type { BBox, Point } from 'tegaki';
 import { BITMAP_PADDING, DEFAULT_RESOLUTION } from '../constants.ts';
 

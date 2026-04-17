@@ -1,3 +1,9 @@
+// Stage 5 of the pipeline — see commands/generate.ts.
+// Group polylines into connected components, decide draw order (top-to-bottom,
+// left-to-right) and per-stroke direction, then assign each point a normalized
+// time `t` ∈ [0, 1] for animation. Stroke widths are looked up from the
+// inverse distance transform (or pre-supplied by the voronoi path).
+
 import type { Point, Stroke, TimedPoint } from 'tegaki';
 import { ORIENT_X_WEIGHT } from '../constants.ts';
 import { getStrokeWidth } from './width.ts';
