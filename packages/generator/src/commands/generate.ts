@@ -23,7 +23,7 @@ import { extractGlyph, inferLineCap } from '../font/parse.ts';
 import { computePathBBox, flattenPath } from '../processing/bezier.ts';
 import { toFontUnits } from '../processing/font-units.ts';
 import { rasterize } from '../processing/rasterize.ts';
-import { skeletonize } from '../processing/skeletonize.ts';
+import { skeletonize } from '../processing/skeletonize/index.ts';
 import { orderStrokes } from '../processing/stroke-order.ts';
 import { computeInverseDistanceTransform } from '../processing/width.ts';
 
