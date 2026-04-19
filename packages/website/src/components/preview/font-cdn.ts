@@ -5,7 +5,13 @@
  * subset as primary and any extra subsets (e.g., japanese, korean, cyrillic) as
  * additional font files. This enables CJK and other non-Latin fonts to work.
  */
-export async function fetchFontFromCDN(family: string): Promise<{ primary: ArrayBuffer; extra: ArrayBuffer[] }> {
+export interface FontSubsetBuffer {
+  /** Subset identifier from Fontsource (e.g. `japanese`, `cyrillic`). */
+  subset: string;
+  buffer: ArrayBuffer;
+}
+
+export async function fetchFontFromCDN(family: string): Promise<{ primary: ArrayBuffer; extra: FontSubsetBuffer[] }> {
   const slug = family.toLowerCase().replace(/\s+/g, '-');
   const baseUrl = `https://cdn.jsdelivr.net/fontsource/fonts/${slug}@latest`;
 
@@ -28,17 +34,17 @@ export async function fetchFontFromCDN(family: string): Promise<{ primary: Array
 
   const extraSubsets = subsets.filter((s) => s !== 'latin');
   const extraResults = await Promise.allSettled(
-    extraSubsets.map(async (subset) => {
+    extraSubsets.map(async (subset): Promise<FontSubsetBuffer | null> => {
       const resp = await fetch(`${baseUrl}/${subset}-400-normal.ttf`);
       if (!resp.ok) return null;
-      return resp.arrayBuffer();
+      return { subset, buffer: await resp.arrayBuffer() };
     }),
   );
 
   const extra = extraResults
-    .filter((r): r is PromiseFulfilledResult<ArrayBuffer | null> => r.status === 'fulfilled')
+    .filter((r): r is PromiseFulfilledResult<FontSubsetBuffer | null> => r.status === 'fulfilled')
     .map((r) => r.value)
-    .filter((buf): buf is ArrayBuffer => buf !== null);
+    .filter((v): v is FontSubsetBuffer => v !== null);
 
   return { primary, extra };
 }

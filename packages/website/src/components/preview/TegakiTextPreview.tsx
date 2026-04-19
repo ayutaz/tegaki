@@ -85,12 +85,24 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
     };
   }, [fontUrl]);
 
+  // Every extra subset gets its OWN family name. Registering multiple FontFaces
+  // under the same name without an explicit `unicodeRange` makes Canvas 2D
+  // (used by the renderer's fallback fillText path in `drawFallbackGlyph`)
+  // always pick the first loaded face — so CJK chars that miss the primary
+  // Latin subset silently hand off to the browser's default Japanese font
+  // instead of the loaded Noto Sans JP subset. Giving each subset a unique
+  // family and listing them as CSS fallbacks restores per-char dispatch.
+  const extraFamilies = useMemo(
+    () => (extraFontBuffers ?? []).map((_, i) => `${fontInfo.family} Subset ${i}`),
+    [fontInfo.family, extraFontBuffers],
+  );
+
   useEffect(() => {
     setFontReady(false);
     const extraUrls = (extraFontBuffers ?? []).map((buf) => URL.createObjectURL(new Blob([buf], { type: 'font/ttf' })));
-    const faces = [fontUrl, ...extraUrls].map(
-      (url) => new FontFace(fontInfo.family, `url(${url})`, { featureSettings: '"calt" 0, "liga" 0' }),
-    );
+    const primaryFace = new FontFace(fontInfo.family, `url(${fontUrl})`, { featureSettings: '"calt" 0, "liga" 0' });
+    const extraFaces = extraUrls.map((url, i) => new FontFace(extraFamilies[i]!, `url(${url})`, { featureSettings: '"calt" 0, "liga" 0' }));
+    const faces = [primaryFace, ...extraFaces];
     let cancelled = false;
     Promise.all(faces.map((f) => f.load())).then((loaded) => {
       if (cancelled) return;
@@ -102,7 +114,7 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       for (const f of faces) document.fonts.delete(f);
       for (const url of extraUrls) URL.revokeObjectURL(url);
     };
-  }, [fontInfo, fontUrl, extraFontBuffers]);
+  }, [fontInfo, fontUrl, extraFontBuffers, extraFamilies]);
 
   const internalCacheRef = useRef<Map<string, PipelineResult>>(new Map());
   const activeCache = resultsCache?.current ?? internalCacheRef.current;
@@ -172,9 +184,17 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       };
     }
 
+    // `cssFontFamily` emits `'family', 'fullFamily'`. Abuse the quote wrapping
+    // to splice in every extra-subset family as an additional fallback, so the
+    // Canvas 2D fallback path in `drawFallbackGlyph` walks the full chain
+    // (primary → subset 0 → subset 1 …) instead of always picking the first
+    // loaded face.
+    const fullFamily = extraFamilies.length > 0 ? extraFamilies.join("', '") : undefined;
+
     return {
       version: BUNDLE_VERSION,
       family: fontInfo.family,
+      ...(fullFamily ? { fullFamily } : {}),
       lineCap: options.lineCap === 'auto' ? fontInfo.lineCap : options.lineCap,
       fontUrl,
       fontFaceCSS: `@font-face { font-family: '${fontInfo.family}'; src: url(${fontUrl}); }`,
@@ -183,7 +203,7 @@ export const TegakiTextPreview = forwardRef<TegakiRendererHandle, TegakiTextPrev
       descender: fontInfo.descender,
       glyphData,
     } satisfies TegakiBundle;
-  }, [fontInfo, fontUrl, text, options, activeCache, preloadTick]);
+  }, [fontInfo, fontUrl, text, options, activeCache, preloadTick, extraFamilies]);
 
   useEffect(() => {
     if (!onReady || !fontReady) return;
