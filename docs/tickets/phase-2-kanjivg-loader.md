@@ -11,7 +11,7 @@
 | Phase | **2 / 8** |
 | マイルストーン名 | KanjiVG ローダー（SVG → `KanjiStroke[]`） |
 | ブランチ名 | `feat/ja-phase2-kanjivg-loader` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `3d8d0ed`) |
 | 依存（前段） | [Phase 1: データセットパッケージ雛形](./phase-1-dataset-package.md) — `getKanjiSvg(codepoint)` / `hasKanji(codepoint)` / `KANJIVG_SHA` を利用 |
 | 依存（後段） | [Phase 3: パイプライン統合](./phase-3-pipeline-integration.md) がこのローダーを `datasetSkeleton()` 内部で呼び出す |
 | 想定期間 | **5 営業日** (一人稼働) |

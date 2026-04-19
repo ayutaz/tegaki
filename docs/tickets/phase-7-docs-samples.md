@@ -11,7 +11,7 @@
 | Phase | **7 / 8** |
 | マイルストーン名 | ドキュメント・サンプル（Starlight `japanese.mdx` 新規 + `PreviewApp` 日本語プリセット + `examples/react-ja/` と `examples/astro-ja/` 新規 + README 日本語明記） |
 | ブランチ名 | `feat/ja-phase7-docs` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `9058e56`) |
 | 依存（前段） | [Phase 6: 検証・チューニング](./phase-6-validation.md)（main マージ済み必須、σ/μ パラメタ確定 / MOS 評価スコア確定 / 既知の限界リスト確定） |
 | 依存（後段） | [Phase 8: リリース判断](./phase-8-release.md) が本 Phase のドキュメント一式を上流 PR 本文 / 自前リリース npm README のソースとして消費 |
 | 並列関係 | **なし**（Phase 6 の成果物をドキュメント化するため、Phase 6 完了後に直列着手。ただし本 Phase 内では §4 の通り 3 担当が並列） |

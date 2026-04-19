@@ -32,16 +32,37 @@ if (hasKanji(0x53f3)) {
 
 ### Coverage
 
-| Range | Count | Covered |
-|---|---|---|
-| Jōyō kanji (常用漢字) | 2,136 | **100%** |
-| Jinmeiyō kanji (人名用漢字) | 863 | **≥ 95%** |
-| Hiragana (ひらがな, U+3041–U+3096 + ゝゞ) | 89 | **100%** |
-| Katakana (カタカナ, U+30A1–U+30FA + ヽヾ) | 90 | **100%** |
-| JIS Level 3/4, CJK Compatibility | — | not included (first release) |
+| Range | Count | Covered (default) | Covered with `TEGAKI_KANJIVG_FULL=1` |
+|---|---|---|---|
+| Hiragana (ひらがな, U+3041–U+3096 + ゝゞ) | ~89 | **100%** | 100% |
+| Katakana (カタカナ, U+30A1–U+30FA + ヽヾ) | ~90 | **100%** | 100% |
+| Jōyō kanji (常用漢字) | 2,136 | **not shipped by default** | covered via the full CJK Unified range |
+| Jinmeiyō kanji (人名用漢字) | 863 | **not shipped by default** | covered via the full CJK Unified range |
+| CJK Unified Ideographs (U+4E00–U+9FFF) | ~20,992 | not included | included (best-effort — KanjiVG itself does not cover every codepoint in this range) |
+| JIS Level 3/4, CJK Compatibility | — | not included | not included |
+
+The committed default is **kana-only** (~180 characters, ~2.8 MB on disk) so
+that `bun add @tegaki/dataset-cjk-kanjivg` stays within the package-size
+budget (NFR-5.2). Jōyō/Jinmeiyō allowlists in
+[`scripts/allowlist.ts`](./scripts/allowlist.ts) are intentionally empty in
+this release; contributors who need broader coverage locally can set
+`TEGAKI_KANJIVG_FULL=1` in the environment before running `fetch-kanjivg`
+and the script will pull every codepoint in the CJK Unified range that
+upstream KanjiVG ships.
 
 Characters outside coverage return `null` from `getKanjiSvg()`. Tegaki's
 renderer pipeline falls back to a geometric heuristic for uncovered glyphs.
+
+### Correcting upstream errors (`fix-overrides.json`)
+
+KanjiVG has a small number of documented errors (e.g. 娩 U+5A69, 庫 U+5EAB,
+炭 U+70AD). Rather than patching the upstream tarball, this package ships a
+[`fix-overrides.json`](./fix-overrides.json) escape hatch: keys are uppercase
+hex codepoints (e.g. `"5A69"`), values are the full SVG document to use in
+place of the upstream file. `getKanjiSvg()` and `hasKanji()` consult the
+overrides before the bundled SVG set, so a correction is one entry away and
+survives future `fetch-kanjivg` runs. The file ships empty by default —
+entries are added during Phase 6 validation rounds.
 
 ## API
 

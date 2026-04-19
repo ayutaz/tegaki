@@ -15,14 +15,14 @@
 
 | Phase | マイルストーン | チケット | ステータス | 依存 |
 |---|---|---|---|---|
-| 1 | データセットパッケージ雛形 | [phase-1-dataset-package.md](./phase-1-dataset-package.md) | 👀 レビュー中 | — |
-| 2 | KanjiVG ローダー | [phase-2-kanjivg-loader.md](./phase-2-kanjivg-loader.md) | 👀 レビュー中 | Phase 1 |
-| 3 | パイプライン統合 | [phase-3-pipeline-integration.md](./phase-3-pipeline-integration.md) | 👀 レビュー中 | Phase 2 |
-| 4 | 仮名バンドル | [phase-4-kana-bundle.md](./phase-4-kana-bundle.md) | 👀 レビュー中 | Phase 3 |
-| 5 | Sigma-Lognormal リズム | [phase-5-rhythm-synthesis.md](./phase-5-rhythm-synthesis.md) | 👀 レビュー中 | Phase 3 |
-| 6 | 検証・チューニング | [phase-6-validation.md](./phase-6-validation.md) | 👀 レビュー中 | Phase 5 |
-| 7 | ドキュメント・サンプル | [phase-7-docs-samples.md](./phase-7-docs-samples.md) | 👀 レビュー中 | Phase 6 |
-| 8 | リリース判断 | [phase-8-release.md](./phase-8-release.md) | 👀 レビュー中 | Phase 7 |
+| 1 | データセットパッケージ雛形 | [phase-1-dataset-package.md](./phase-1-dataset-package.md) | ✅ 完了 | — |
+| 2 | KanjiVG ローダー | [phase-2-kanjivg-loader.md](./phase-2-kanjivg-loader.md) | ✅ 完了 | Phase 1 |
+| 3 | パイプライン統合 | [phase-3-pipeline-integration.md](./phase-3-pipeline-integration.md) | ✅ 完了 | Phase 2 |
+| 4 | 仮名バンドル | [phase-4-kana-bundle.md](./phase-4-kana-bundle.md) | ✅ 完了 | Phase 3 |
+| 5 | Sigma-Lognormal リズム | [phase-5-rhythm-synthesis.md](./phase-5-rhythm-synthesis.md) | ✅ 完了 | Phase 3 |
+| 6 | 検証・チューニング | [phase-6-validation.md](./phase-6-validation.md) | ✅ 完了 | Phase 5 |
+| 7 | ドキュメント・サンプル | [phase-7-docs-samples.md](./phase-7-docs-samples.md) | ✅ 完了 | Phase 6 |
+| 8 | リリース判断 | [phase-8-release.md](./phase-8-release.md) | ✅ 完了 | Phase 7 |
 
 ### ステータス凡例
 

@@ -11,7 +11,7 @@
 | Phase | **4 / 8** |
 | マイルストーン名 | 仮名バンドル `tegaki/fonts/ja-kana`（ひらがな 89 + カタカナ 90 = 179 字、事前配布） |
 | ブランチ名 | `feat/ja-phase4-kana-bundle` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `6b3098a`) |
 | 依存（前段） | [Phase 3: パイプライン統合](./phase-3-pipeline-integration.md)（`main` マージ必須。`datasetSkeleton()` + `--dataset kanjivg` CLI が動作する前提） |
 | 依存（後段） | [Phase 6: 検証・チューニング](./phase-6-validation.md)（仮名の目視確認対象に含む）、[Phase 7: ドキュメント・サンプル](./phase-7-docs-samples.md)（`import kana from 'tegaki/fonts/ja-kana'` を使う example を追加） |
 | 並列可能性 | [Phase 5: Sigma-Lognormal リズム](./phase-5-rhythm-synthesis.md) と**同時並行可**（両者とも Phase 3 の `datasetSkeleton()` を前提にし、互いに干渉しない）|

@@ -11,7 +11,7 @@
 | Phase | **8 / 8**（最終） |
 | マイルストーン名 | 上流提案 or 自前リリース（Q-7 決定 + 配信） |
 | ブランチ名 | 判断次第で `feat/ja-upstream-pr-series` / `release/v0.14.0-ja` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `c0335c4`) |
 | 依存（前段） | [Phase 7: ドキュメント・サンプル](./phase-7-docs-samples.md)（main マージ済必須、`guides/japanese.mdx` / README / examples 整備済） |
 | 依存（後段） | なし（本 Phase がプロジェクト完了点） |
 | 並列関係 | なし（最終フェーズ、先行フェーズ完了後に直列） |
