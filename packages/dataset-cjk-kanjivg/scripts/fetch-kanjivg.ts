@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { EXPECTED_TARBALL_SHA256, KANJIVG_DIR, KANJIVG_RELEASE_TARBALL_URL, KANJIVG_SHA, UNPINNED_SENTINEL } from '../src/constants.ts';
+import { EXPECTED_TARBALL_SHA256, KANJIVG_RELEASE_TARBALL_URL, KANJIVG_SHA, UNPINNED_SENTINEL } from '../src/constants.ts';
 import { buildAllowedCodepoints } from './allowlist.ts';
 
 const SCRIPT_DIR = import.meta.dir;
@@ -21,6 +21,8 @@ const CACHE_DIR = resolve(PKG_DIR, '.cache');
 const TARBALL_PATH = resolve(CACHE_DIR, `kanjivg-${KANJIVG_SHA}.tar.gz`);
 const EXTRACT_DIR = resolve(CACHE_DIR, `extracted-${KANJIVG_SHA}`);
 const MANIFEST_PATH = resolve(PKG_DIR, 'src', 'manifest.ts');
+// Computed locally now that constants.ts is browser-safe (no node:path import).
+const KANJIVG_DIR = resolve(PKG_DIR, 'kanjivg');
 
 const VARIANT_SUFFIXES = ['-Kaisho', '-Jinmei', '-HyogaiKanji', '-DaSeM'];
 

@@ -1,30 +1,73 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-
-import { KANJIVG_DIR } from './constants.ts';
 import { MANIFEST } from './manifest.ts';
 
 export { KANJIVG_SHA } from './constants.ts';
 export type { KanjiManifestEntry } from './manifest.ts';
 
-interface FixOverrides {
-  readonly overrides: Record<string, string>;
+// This module is written so it can be imported from a browser bundle (via
+// the in-browser generator preview) without blowing up. The node:fs /
+// node:path accesses are lazy — we try to load them on first call and
+// degrade to null if they aren't available, which happens in:
+//   - Web browsers (no filesystem)
+//   - Bundlers that externalize `node:*` specifiers into runtime stubs
+// In those environments the pre-built bundles (e.g. tegaki/fonts/ja-kana)
+// already carry the stroke data, so the dataset lookup failing is the
+// correct graceful path.
+
+interface NodeBindings {
+  readFileSync: typeof import('node:fs').readFileSync;
+  existsSync: typeof import('node:fs').existsSync;
+  resolve: typeof import('node:path').resolve;
+  kanjivgDir: string;
+  overrides: Record<string, string>;
 }
 
-const OVERRIDES_PATH = resolve(import.meta.dir, '..', 'fix-overrides.json');
+let _node: NodeBindings | null | undefined;
 
-// Phase 6 escape hatch: corrections for upstream KanjiVG errors. Keys are
-// uppercase hex codepoints (e.g. "5A69" for 娩). Loaded eagerly — the file
-// ships empty and is typically small, so the one-time cost is negligible.
-const FIX_OVERRIDES: Record<string, string> = (() => {
-  try {
-    if (!existsSync(OVERRIDES_PATH)) return {};
-    const parsed = JSON.parse(readFileSync(OVERRIDES_PATH, 'utf-8')) as Partial<FixOverrides>;
-    return parsed.overrides ?? {};
-  } catch {
-    return {};
+function isNodeRuntime(): boolean {
+  return typeof process !== 'undefined' && !!process.versions?.node;
+}
+
+function getNode(): NodeBindings | null {
+  if (_node !== undefined) return _node;
+  if (!isNodeRuntime()) {
+    _node = null;
+    return null;
   }
-})();
+  try {
+    // Dodge Vite's static analyzer: the `new Function(...)` returns `require`
+    // at runtime (exists in Bun + Node CommonJS) and `null` otherwise (ESM
+    // Node / browsers). The specifiers are reassembled at runtime so Vite
+    // never sees a literal `"node:path"` import to externalize.
+    const lookupRequire = new Function('return typeof require === "function" ? require : null');
+    const req = lookupRequire() as ((m: string) => unknown) | null;
+    if (!req) {
+      _node = null;
+      return null;
+    }
+    const fsSpec = ['node', 'fs'].join(':');
+    const pathSpec = ['node', 'path'].join(':');
+    const fs = req(fsSpec) as typeof import('node:fs');
+    const path = req(pathSpec) as typeof import('node:path');
+    const kanjivgDir = path.resolve(import.meta.dir, '..', 'kanjivg');
+    const overridesPath = path.resolve(import.meta.dir, '..', 'fix-overrides.json');
+    let overrides: Record<string, string> = {};
+    try {
+      if (fs.existsSync(overridesPath)) {
+        const parsed = JSON.parse(fs.readFileSync(overridesPath, 'utf-8')) as {
+          overrides?: Record<string, string>;
+        };
+        overrides = parsed.overrides ?? {};
+      }
+    } catch {
+      // Malformed fix-overrides.json — ignore, ship manifest as-is.
+    }
+    _node = { readFileSync: fs.readFileSync, existsSync: fs.existsSync, resolve: path.resolve, kanjivgDir, overrides };
+    return _node;
+  } catch {
+    _node = null;
+    return null;
+  }
+}
 
 function overrideKey(codepoint: number): string {
   return codepoint.toString(16).toUpperCase().padStart(4, '0');
@@ -35,19 +78,22 @@ function overrideKey(codepoint: number): string {
  *
  * Synchronous by design — the manifest lookup is O(1) and file I/O is cheap
  * when consumers ask for one glyph at a time from the Tegaki generator
- * pipeline. Callers that need parallel fan-out can wrap this in a worker.
+ * pipeline. Returns `null` in browsers (where the filesystem isn't
+ * available) so the in-browser preview falls through to the heuristic path.
  *
  * @param codepoint Unicode codepoint, e.g. `0x53f3` for 「右」. BMP only for the first release.
- * @returns UTF-8 SVG markup, or `null` if the codepoint is not covered
- *          (JIS L3/L4, CJK Compatibility, emoji, etc.).
  */
 export function getKanjiSvg(codepoint: number): string | null {
-  const overrideSvg = FIX_OVERRIDES[overrideKey(codepoint)];
-  if (overrideSvg) return overrideSvg;
+  const node = getNode();
+  if (node) {
+    const overrideSvg = node.overrides[overrideKey(codepoint)];
+    if (overrideSvg) return overrideSvg;
+  }
   const entry = MANIFEST.get(codepoint);
   if (!entry) return null;
+  if (!node) return null;
   try {
-    return readFileSync(resolve(KANJIVG_DIR, entry.file), 'utf-8');
+    return node.readFileSync(node.resolve(node.kanjivgDir, entry.file), 'utf-8');
   } catch {
     return null;
   }
@@ -55,7 +101,8 @@ export function getKanjiSvg(codepoint: number): string | null {
 
 /** Cheap existence check (no file I/O). Used by the `isCJK(char) && dataset.has(char)` dispatch. */
 export function hasKanji(codepoint: number): boolean {
-  if (FIX_OVERRIDES[overrideKey(codepoint)]) return true;
+  const node = getNode();
+  if (node?.overrides[overrideKey(codepoint)]) return true;
   return MANIFEST.has(codepoint);
 }
 
