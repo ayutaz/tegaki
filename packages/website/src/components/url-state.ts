@@ -130,7 +130,11 @@ const REVERSE_OPTION_KEYS = Object.fromEntries(Object.entries(OPTION_KEYS).map((
 /** Read URL state from the current location search params. Returns only overrides (merged with defaults). */
 export function parseUrlState(): UrlState {
   const p = new URLSearchParams(window.location.search);
-  const state: UrlState = { ...URL_DEFAULTS, options: { ...DEFAULT_OPTIONS } };
+  // Spread URL_DEFAULTS.options (which carries our Japanese-first dataset/rhythm
+  // overrides) rather than DEFAULT_OPTIONS directly — otherwise the overrides
+  // in URL_DEFAULTS are silently dropped and every generated glyph falls back
+  // to the heuristic skeletonizer.
+  const state: UrlState = { ...URL_DEFAULTS, options: { ...URL_DEFAULTS.options } };
 
   if (p.has('f')) state.fontFamily = p.get('f')!;
   if (p.has('ch')) state.chars = p.get('ch')!;
