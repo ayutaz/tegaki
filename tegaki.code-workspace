@@ -1,0 +1,38 @@
+{
+  "folders": [
+    {
+      "name": "🏠 tegaki (root)",
+      "path": "."
+    },
+    {
+      "name": "🎨 renderer",
+      "path": "packages/renderer"
+    },
+    {
+      "name": "⚙️ generator",
+      "path": "packages/generator"
+    },
+    {
+      "name": "🌐 website",
+      "path": "packages/website"
+    },
+    {
+      "name": "🎬 examples/remotion",
+      "path": "examples/remotion"
+    }
+  ],
+  "settings": {
+    "workbench.editor.labelFormat": "medium",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.biome": "explicit",
+      "source.organizeImports.biome": "explicit"
+    },
+    "[js][jsx][ts][tsx][typescript][typescriptreact][javascript][javascriptreact][json][jsonc][html][css][scss][markdown][mdx]": {
+      "editor.defaultFormatter": "biomejs.biome"
+    },
+    "js/ts.preferences.quoteStyle": "single",
+    "js/ts.tsdk.path": "node_modules/typescript/lib",
+    "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  }
+}

@@ -2,43 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   format:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      - run: bun i
-      - run: bunx biome check --write
-      - name: Detect formatting changes
-        id: changes
-        run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Commit and push formatting fixes
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "style: apply Biome formatting"
-          git push
-      - name: Fail because formatting fixes were applied
-        if: steps.changes.outputs.changed == 'true'
-        run: exit 1
+      - run: bun i --frozen-lockfile
+      - run: bunx biome check
 
   checks:
     needs: format
@@ -48,7 +26,30 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-      - run: bun i
+      - run: bun i --frozen-lockfile
       - run: bun check
       - run: bun typecheck
       - run: bun run test
+
+  e2e:
+    needs: checks
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - run: apt-get update && apt-get install -y unzip curl
+      - uses: oven-sh/setup-bun@v2
+      - run: bun i --frozen-lockfile
+      - name: Run Playwright
+        working-directory: packages/website
+        run: bun test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: packages/website/playwright-report/
+          retention-days: 14

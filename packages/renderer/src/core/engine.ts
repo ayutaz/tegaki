@@ -735,8 +735,6 @@ export class TegakiEngine {
     const layout = this._layout;
     const fontSize = this._fontSize;
 
-    if (!font?.glyphData || !layout || !fontSize) return;
-
     const dpr = window.devicePixelRatio || 1;
     // Supersampling: draw into a backing canvas larger than the displayed CSS
     // size, then let the browser downsample. Improves antialiasing at a
@@ -757,6 +755,10 @@ export class TegakiEngine {
 
     ctx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+
+    // Nothing to draw (e.g. empty text) — but the clear above still needs to
+    // run so stale pixels from the previous render don't linger.
+    if (!font?.glyphData || !layout || !fontSize) return;
 
     const padH = PADDING_H_EM * fontSize;
     const lineHeight = this._lineHeight;
@@ -784,11 +786,12 @@ export class TegakiEngine {
         const p = findEffect(this._resolvedEffects, 'pressureWidth');
         return !!p && Math.max(0, Math.min(p.config.strength ?? 1, 1)) > 0;
       })();
+    const smoothing = this._quality?.smoothing === true;
     const userSegmentSize = this._quality?.segmentSize;
-    const resolvedSegmentSize = userSegmentSize ?? (effectsNeedSubdivision ? 2 : undefined);
+    const resolvedSegmentSize = userSegmentSize ?? (effectsNeedSubdivision || smoothing ? 2 : undefined);
     const scale = fontSize / font.unitsPerEm;
     const maxSegLenFU = resolvedSegmentSize != null ? resolvedSegmentSize / scale : Infinity;
-    const cacheKey = `${font.family}|${maxSegLenFU}`;
+    const cacheKey = `${font.family}|${maxSegLenFU}|${smoothing ? 's' : 'l'}`;
     if (cacheKey !== this._strokeCacheKey) {
       this._strokeCache = new WeakMap();
       this._strokeCacheKey = cacheKey;
@@ -797,7 +800,7 @@ export class TegakiEngine {
     const getSubdivided = (stroke: TegakiGlyphData['s'][number]): SubdividedStroke => {
       let sub = strokeCache.get(stroke);
       if (!sub) {
-        sub = subdivideStroke(stroke, maxSegLenFU);
+        sub = subdivideStroke(stroke, maxSegLenFU, smoothing);
         strokeCache.set(stroke, sub);
       }
       return sub;
