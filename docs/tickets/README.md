@@ -15,7 +15,7 @@
 
 | Phase | マイルストーン | チケット | ステータス | 依存 |
 |---|---|---|---|---|
-| 1 | データセットパッケージ雛形 | [phase-1-dataset-package.md](./phase-1-dataset-package.md) | 📝 未着手 | — |
+| 1 | データセットパッケージ雛形 | [phase-1-dataset-package.md](./phase-1-dataset-package.md) | 👀 レビュー中 | — |
 | 2 | KanjiVG ローダー | [phase-2-kanjivg-loader.md](./phase-2-kanjivg-loader.md) | 📝 未着手 | Phase 1 |
 | 3 | パイプライン統合 | [phase-3-pipeline-integration.md](./phase-3-pipeline-integration.md) | 📝 未着手 | Phase 2 |
 | 4 | 仮名バンドル | [phase-4-kana-bundle.md](./phase-4-kana-bundle.md) | 📝 未着手 | Phase 3 |
