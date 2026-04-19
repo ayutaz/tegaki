@@ -1,6 +1,7 @@
-// Node-only imports. Safe to import at module scope because we never *call*
-// them in a browser runtime — the isNodeRuntime() gate in getNode() short
-// circuits before any method on the Vite-externalised stubs is touched.
+// Node entry. Browser bundlers resolve `./browser.ts` instead via the
+// `browser` export condition (see package.json), so it is safe to use
+// node:fs / node:path directly here.
+
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -9,135 +10,51 @@ import { MANIFEST } from './manifest.ts';
 export { KANJIVG_SHA } from './constants.ts';
 export type { KanjiManifestEntry } from './manifest.ts';
 
-// This module is written so it can be imported from a browser bundle (via
-// the in-browser generator preview) as well as from Node. Two code paths:
-//   - Node / Bun: read SVG files synchronously through node:fs.
-//   - Vite browser bundle: `import.meta.glob(..., { eager: true, ?raw })`
-//     inlines every kanjivg/*.svg file as a string at build time, keyed by
-//     filename. That gives synchronous O(1) lookup without any file I/O.
-// When neither path works (e.g. a non-Vite browser bundler), `getKanjiSvg`
-// returns null and the caller falls back to the heuristic pipeline.
-
-interface NodeBindings {
-  kanjivgDir: string;
-  overrides: Record<string, string>;
+interface FixOverrides {
+  readonly overrides: Record<string, string>;
 }
 
-let _node: NodeBindings | null | undefined;
+const OVERRIDES_PATH = resolve(import.meta.dir, '..', 'fix-overrides.json');
+const KANJIVG_DIR = resolve(import.meta.dir, '..', 'kanjivg');
 
-function isNodeRuntime(): boolean {
-  return typeof process !== 'undefined' && !!process.versions?.node;
-}
-
-function getNode(): NodeBindings | null {
-  if (_node !== undefined) return _node;
-  if (!isNodeRuntime()) {
-    _node = null;
-    return null;
-  }
+// Phase 6 escape hatch: KanjiVG error corrections keyed by uppercase hex
+// codepoint. Loaded eagerly — the file ships empty and is small enough that
+// the one-time read cost is negligible.
+const FIX_OVERRIDES: Record<string, string> = (() => {
   try {
-    const kanjivgDir = resolve(import.meta.dir, '..', 'kanjivg');
-    const overridesPath = resolve(import.meta.dir, '..', 'fix-overrides.json');
-    let overrides: Record<string, string> = {};
-    try {
-      if (existsSync(overridesPath)) {
-        const parsed = JSON.parse(readFileSync(overridesPath, 'utf-8')) as {
-          overrides?: Record<string, string>;
-        };
-        overrides = parsed.overrides ?? {};
-      }
-    } catch {
-      // Malformed fix-overrides.json — ignore, ship manifest as-is.
-    }
-    _node = { kanjivgDir, overrides };
-    return _node;
+    if (!existsSync(OVERRIDES_PATH)) return {};
+    const parsed = JSON.parse(readFileSync(OVERRIDES_PATH, 'utf-8')) as Partial<FixOverrides>;
+    return parsed.overrides ?? {};
   } catch {
-    _node = null;
-    return null;
+    return {};
   }
-}
+})();
 
 function overrideKey(codepoint: number): string {
   return codepoint.toString(16).toUpperCase().padStart(4, '0');
 }
 
-// Vite-specific: `import.meta.glob` with `eager: true` and `?raw` inlines the
-// entire matching file set as strings at build time. This makes every SVG
-// accessible synchronously in the browser without any file I/O. In Node /
-// Bun `import.meta.glob` is undefined, the access throws, and we fall
-// through to the node:fs path via getNode().
-let _browserSvgs: Map<number, string> | null | undefined;
-
-function getBrowserSvgs(): Map<number, string> | null {
-  if (_browserSvgs !== undefined) return _browserSvgs;
-  try {
-    // IMPORTANT: Vite's static analyzer only replaces `import.meta.glob(...)`
-    // when it is used as a literal call expression. Assigning it to a variable
-    // first (const glob = import.meta.glob; glob(...)) defeats the transform
-    // and leaves `import.meta.glob` undefined at runtime. Keep this shape.
-    // biome-ignore lint/suspicious/noExplicitAny: Vite-specific runtime API
-    const svgs = (import.meta as any).glob('../kanjivg/*.svg', {
-      query: '?raw',
-      import: 'default',
-      eager: true,
-    }) as Record<string, string> | undefined;
-    if (!svgs || Object.keys(svgs).length === 0) {
-      _browserSvgs = null;
-      return null;
-    }
-    const map = new Map<number, string>();
-    for (const [path, content] of Object.entries(svgs)) {
-      const m = path.match(/([0-9a-f]+)\.svg$/i);
-      if (m) map.set(Number.parseInt(m[1]!, 16), content);
-    }
-    _browserSvgs = map;
-    return map;
-  } catch {
-    _browserSvgs = null;
-    return null;
-  }
-}
-
 /**
- * Load the raw KanjiVG SVG string for a single codepoint.
- *
- * Synchronous by design — the manifest lookup is O(1) and file I/O is cheap
- * when consumers ask for one glyph at a time from the Tegaki generator
- * pipeline. Returns `null` in browsers (where the filesystem isn't
- * available) so the in-browser preview falls through to the heuristic path.
- *
- * @param codepoint Unicode codepoint, e.g. `0x53f3` for 「右」. BMP only for the first release.
+ * Load the raw KanjiVG SVG string for a single codepoint. Synchronous file
+ * read through node:fs. Returns `null` when the codepoint is not covered
+ * (JIS L3/L4, emoji, etc.) or when the manifest entry's file is missing
+ * (typical before `bun run fetch-kanjivg` has been invoked).
  */
 export function getKanjiSvg(codepoint: number): string | null {
-  const node = getNode();
-  if (node) {
-    const overrideSvg = node.overrides[overrideKey(codepoint)];
-    if (overrideSvg) return overrideSvg;
-  }
-  // Browser inline blob first — it works even when MANIFEST is the committed
-  // empty placeholder, because the blob is keyed directly by codepoint from
-  // the SVG filename, not from the manifest.
-  const browserSvgs = getBrowserSvgs();
-  if (browserSvgs) {
-    const svg = browserSvgs.get(codepoint);
-    if (svg) return svg;
-  }
-  // Node fallback requires a populated manifest (generated by fetch-kanjivg).
+  const override = FIX_OVERRIDES[overrideKey(codepoint)];
+  if (override) return override;
   const entry = MANIFEST.get(codepoint);
-  if (!entry || !node) return null;
+  if (!entry) return null;
   try {
-    return readFileSync(resolve(node.kanjivgDir, entry.file), 'utf-8');
+    return readFileSync(resolve(KANJIVG_DIR, entry.file), 'utf-8');
   } catch {
     return null;
   }
 }
 
-/** Cheap existence check (no file I/O). Used by the `isCJK(char) && dataset.has(char)` dispatch. */
+/** Cheap existence check (no file I/O). */
 export function hasKanji(codepoint: number): boolean {
-  const node = getNode();
-  if (node?.overrides[overrideKey(codepoint)]) return true;
-  const browserSvgs = getBrowserSvgs();
-  if (browserSvgs) return browserSvgs.has(codepoint) || MANIFEST.has(codepoint);
+  if (FIX_OVERRIDES[overrideKey(codepoint)]) return true;
   return MANIFEST.has(codepoint);
 }
 

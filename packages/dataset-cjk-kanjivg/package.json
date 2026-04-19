@@ -34,7 +34,15 @@
   ],
   "exports": {
     ".": {
-      "tegaki@dev": "./src/index.ts",
+      "tegaki@dev": {
+        "browser": "./src/browser.ts",
+        "default": "./src/index.ts"
+      },
+      "browser": {
+        "source": "./src/browser.ts",
+        "types": "./dist/browser.d.mts",
+        "import": "./dist/browser.mjs"
+      },
       "source": "./src/index.ts",
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
