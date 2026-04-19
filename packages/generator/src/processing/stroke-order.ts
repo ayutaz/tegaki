@@ -4,7 +4,8 @@
 // time `t` ∈ [0, 1] for animation. Stroke widths are looked up from the
 // inverse distance transform (or pre-supplied by the voronoi path).
 
-import type { Point, Stroke, TimedPoint } from 'tegaki';
+import type { EndpointType, Point, Stroke, TimedPoint } from 'tegaki';
+import { remapTime, strokeParams } from 'tegaki/core';
 import { ORIENT_X_WEIGHT } from '../constants.ts';
 import { getStrokeWidth } from './width.ts';
 
@@ -76,12 +77,54 @@ function orientPolyline(points: Point[]): Point[] {
  * Each polyline is oriented for natural handwriting direction, then assigned
  * t parameter (animation progress) and stroke width values.
  */
+/**
+ * Rhythm-shaping options for `orderStrokes`.
+ *
+ * When `mode === 'lognormal'`, per-point `t` values are passed through
+ * Plamondon's lognormal CDF (see packages/renderer/src/lib/rhythm.ts) so
+ * the renderer, which replays points on a uniform time axis, produces the
+ * asymmetric bell-shaped speed profile humans actually exhibit.
+ * Endpoint types parallel `polylines` and come from the KanjiVG dataset
+ * in Phase 3 — missing or undefined entries default to 'default'.
+ */
+export interface RhythmConfig {
+  mode: 'lognormal';
+  endpointTypes?: readonly EndpointType[];
+}
+
+/** Average turning per unit length — 0 for a straight line, higher for curves. */
+function meanCurvature(points: Point[]): number {
+  if (points.length < 3) return 0;
+  let turn = 0;
+  let len = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    const c = points[i + 1]!;
+    const ax = b.x - a.x;
+    const ay = b.y - a.y;
+    const bx = c.x - b.x;
+    const by = c.y - b.y;
+    const la = Math.hypot(ax, ay);
+    const lb = Math.hypot(bx, by);
+    if (la === 0 || lb === 0) continue;
+    const cos = Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)));
+    turn += Math.acos(cos);
+    len += la;
+  }
+  const lastSeg = points[points.length - 1]!;
+  const prev = points[points.length - 2]!;
+  len += Math.hypot(lastSeg.x - prev.x, lastSeg.y - prev.y);
+  return len > 0 ? turn / len : 0;
+}
+
 export function orderStrokes(
   polylines: Point[][],
   inverseDT: Float32Array | null,
   bitmapWidth: number,
   _connectionThreshold = 3,
   precomputedWidths?: number[][],
+  rhythm?: RhythmConfig,
 ): Stroke[] {
   if (polylines.length === 0) return [];
 
@@ -96,13 +139,18 @@ export function orderStrokes(
     const origIdx = precomputedWidths ? polylines.indexOf(polyline) : -1;
     const pWidths = origIdx >= 0 ? precomputedWidths![origIdx] : null;
 
+    // Per-stroke lognormal parameters (null when rhythm === undefined).
+    const rhythmParams =
+      rhythm?.mode === 'lognormal' ? strokeParams(totalLen, meanCurvature(oriented), rhythm.endpointTypes?.[order] ?? 'default') : null;
+
     // Assign t parameter and width
     let cumLen = 0;
     const points: TimedPoint[] = oriented.map((p, i) => {
       if (i > 0) {
         cumLen += dist(oriented[i - 1]!, p);
       }
-      const t = totalLen > 0 ? cumLen / totalLen : 0;
+      const u = totalLen > 0 ? cumLen / totalLen : 0;
+      const t = rhythmParams ? remapTime(u, rhythmParams.sigma, rhythmParams.mu) : u;
       // Precomputed widths use original point order; check if oriented is reversed
       const isReversed = oriented !== polyline && oriented[0] !== polyline[0];
       const widthIdx = isReversed ? oriented.length - 1 - i : i;
