@@ -58,6 +58,14 @@ export function hasKanji(codepoint: number): boolean {
   return MANIFEST.has(codepoint);
 }
 
+/**
+ * On Node the filesystem read is synchronous, so readiness is equivalent to
+ * coverage. Exposed for API parity with the browser entry.
+ */
+export function isKanjiReady(codepoint: number): boolean {
+  return hasKanji(codepoint);
+}
+
 /** Iterate every covered codepoint. Ascending-sorted, stable across runs. */
 export function listCodepoints(): Iterable<number> {
   return MANIFEST.keys();

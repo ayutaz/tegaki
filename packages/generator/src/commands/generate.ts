@@ -1,3 +1,4 @@
+import { hasKanji } from '@tegaki/dataset-cjk-kanjivg';
 import opentype from 'opentype.js';
 import { type BBox, BUNDLE_VERSION, type FontOutput, type LineCap, type Point, type Stroke } from 'tegaki';
 import * as z from 'zod/v4';
@@ -237,14 +238,20 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
     endpointTypes = datasetOut.endpointTypes;
   } else {
     if (options.dataset === 'kanjivg' && isCJK(char)) {
-      if (options.strict) {
-        throw new Error(
-          `--strict: character "${char}" (U+${char.codePointAt(0)?.toString(16).toUpperCase()}) is not in the KanjiVG dataset.`,
+      const cp = char.codePointAt(0);
+      const covered = cp !== undefined && hasKanji(cp);
+      if (options.strict && !covered) {
+        throw new Error(`--strict: character "${char}" (U+${cp?.toString(16).toUpperCase()}) is not in the KanjiVG dataset.`);
+      }
+      // Covered-but-no-SVG happens in the browser between render passes while
+      // `preloadKanji` is still in flight — the next render after the preload
+      // promise resolves will succeed, so stay silent. Warn only when the
+      // character is genuinely missing from the manifest.
+      if (!covered) {
+        console.warn(
+          `[generate] "${char}" (U+${cp?.toString(16).toUpperCase()}) not in KanjiVG dataset; falling back to heuristic skeletonization.`,
         );
       }
-      console.warn(
-        `[generate] "${char}" (U+${char.codePointAt(0)?.toString(16).toUpperCase()}) not in KanjiVG dataset; falling back to heuristic skeletonization.`,
-      );
     }
     const r = skeletonize({ subPaths, pathBBox, raster, inverseDT, options });
     skeleton = r.skeleton;

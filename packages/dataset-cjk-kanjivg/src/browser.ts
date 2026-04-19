@@ -115,6 +115,15 @@ export function hasKanji(codepoint: number): boolean {
   return MANIFEST.has(codepoint);
 }
 
+/**
+ * Whether the SVG for this codepoint has already been preloaded and is ready
+ * for synchronous `getKanjiSvg`. Callers can use this to gate pipeline work
+ * and avoid a heuristic-fallback flash on the render before preload resolves.
+ */
+export function isKanjiReady(codepoint: number): boolean {
+  return _svgCache.has(codepoint);
+}
+
 /** Iterate every covered codepoint (from the manifest). */
 export function listCodepoints(): Iterable<number> {
   return MANIFEST.keys();

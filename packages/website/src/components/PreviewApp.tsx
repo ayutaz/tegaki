@@ -2,7 +2,7 @@ import { zipSync } from 'fflate';
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
-import { preloadKanji } from '@tegaki/dataset-cjk-kanjivg';
+import { hasKanji, isKanjiReady, preloadKanji } from '@tegaki/dataset-cjk-kanjivg';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BUNDLE_VERSION,
@@ -1388,6 +1388,16 @@ function TextPreview({
     for (const char of text) {
       if (seen.has(char) || char === ' ' || char === '\n') continue;
       seen.add(char);
+
+      // When the dataset pipeline is active, skip a char whose SVG is
+      // covered by the manifest but has not finished preloading yet — the
+      // effect below will bump preloadTick once the fetch resolves, at
+      // which point this glyph re-processes with the correct stroke order.
+      // Skipping avoids a visible flash of the heuristic fallback.
+      if (options.dataset === 'kanjivg') {
+        const cp = char.codePointAt(0);
+        if (cp !== undefined && CJK_REGEX.test(char) && hasKanji(cp) && !isKanjiReady(cp)) continue;
+      }
 
       const cacheKey = `${char}:${optionsKey}:${preloadTick}`;
       let res = resultsCache.current.get(cacheKey);
