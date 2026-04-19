@@ -16,6 +16,7 @@
       "!**/build",
       "!**/out",
       "!**/fonts",
+      "!**/kanji-codepoints.ts",
       "!**/*.md",
       "!**/*.astro",
       "!**/*.svelte",

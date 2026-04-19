@@ -2,6 +2,7 @@ import { zipSync } from 'fflate';
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
+import { preloadKanji } from '@tegaki/dataset-cjk-kanjivg';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BUNDLE_VERSION,
@@ -57,6 +58,19 @@ const EASING_MAP = new Map(EASING_PRESETS.map((p) => [p.key, p.fn]));
 
 function getEasingFn(key: string): ((t: number) => number) | undefined {
   return EASING_MAP.get(key);
+}
+
+/** CJK ranges KanjiVG covers — hiragana + katakana + CJK Unified Ideographs. */
+const CJK_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/u;
+
+function collectCjkCodepoints(text: string): number[] {
+  const cps: number[] = [];
+  for (const ch of text) {
+    if (!CJK_REGEX.test(ch)) continue;
+    const cp = ch.codePointAt(0);
+    if (cp !== undefined) cps.push(cp);
+  }
+  return cps;
 }
 
 type Stage =
@@ -254,16 +268,26 @@ export function PreviewApp() {
     }
 
     setProcessing(true);
-    // Use setTimeout to let the UI update before heavy computation
-    const id = setTimeout(() => {
-      const res = processGlyph(fontInfo, selectedChar, options);
-      if (res) {
-        resultsCache.current.set(cacheKey, res);
+    let cancelled = false;
+    // Preload the KanjiVG SVG for this char before running the pipeline —
+    // otherwise the dataset path silently falls back to heuristic skeleton-
+    // ization on the first render and stroke order comes out wrong.
+    const run = async () => {
+      if (options.dataset === 'kanjivg') {
+        await preloadKanji(collectCjkCodepoints(selectedChar));
       }
+      if (cancelled) return;
+      const res = processGlyph(fontInfo, selectedChar, options);
+      if (cancelled) return;
+      if (res) resultsCache.current.set(cacheKey, res);
       setResult(res);
       setProcessing(false);
-    }, 10);
-    return () => clearTimeout(id);
+    };
+    const id = setTimeout(run, 10);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
   }, [fontInfo, selectedChar, options]);
 
   // Auto-play animation when result changes
@@ -380,6 +404,9 @@ export function PreviewApp() {
     if (!fontInfo || !fontBuffer) return;
     setDownloading(true);
     try {
+      if (options.dataset === 'kanjivg') {
+        await preloadKanji(collectCjkCodepoints(chars));
+      }
       const slug = fontInfo.family.toLowerCase().replace(/\s+/g, '-');
       const bundle = extractTegakiBundle({
         fontBuffer,
@@ -1329,6 +1356,27 @@ function TextPreview({
     };
   }, [fontInfo, fontUrl, extraFontBuffers]);
 
+  // Lazy-fetch KanjiVG SVGs for every CJK char in the preview text. When the
+  // fetch resolves, bump `preloadTick` — the bundle useMemo depends on it, so
+  // the text re-processes with the dataset-driven stroke order instead of the
+  // heuristic fallback that ran on the first pass.
+  const [preloadTick, setPreloadTick] = useState(0);
+  useEffect(() => {
+    if (options.dataset !== 'kanjivg') return;
+    let cancelled = false;
+    const cps = collectCjkCodepoints(text);
+    if (cps.length === 0) return;
+    preloadKanji(cps).then(() => {
+      if (!cancelled) {
+        resultsCache.current.clear();
+        setPreloadTick((t) => t + 1);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [text, options.dataset, resultsCache]);
+
   // Process glyphs and build a FontBundle
   const fontBundle = useMemo(() => {
     if (!fontInfo || !fontUrl) return null;
@@ -1341,7 +1389,7 @@ function TextPreview({
       if (seen.has(char) || char === ' ' || char === '\n') continue;
       seen.add(char);
 
-      const cacheKey = `${char}:${optionsKey}`;
+      const cacheKey = `${char}:${optionsKey}:${preloadTick}`;
       let res = resultsCache.current.get(cacheKey);
       if (!res) {
         res = processGlyph(fontInfo, char, options) ?? undefined;
@@ -1372,7 +1420,7 @@ function TextPreview({
       descender: fontInfo.descender,
       glyphData,
     } satisfies TegakiBundle;
-  }, [fontInfo, fontUrl, text, options, resultsCache]);
+  }, [fontInfo, fontUrl, text, options, resultsCache, preloadTick]);
 
   const timeline = useMemo(() => (fontBundle ? computeTimeline(text, fontBundle) : { entries: [], totalDuration: 0 }), [text, fontBundle]);
 

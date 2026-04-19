@@ -67,3 +67,12 @@ export function listCodepoints(): Iterable<number> {
 export function getManifestEntry(codepoint: number): import('./manifest.ts').KanjiManifestEntry | null {
   return MANIFEST.get(codepoint) ?? null;
 }
+
+/**
+ * No-op on Node — present for API parity with the browser entry, where SVGs
+ * are fetched lazily and must be preloaded before the synchronous lookup.
+ * Node reads from the filesystem on demand.
+ */
+export async function preloadKanji(_codepoints: Iterable<number>): Promise<void> {
+  // no-op
+}
