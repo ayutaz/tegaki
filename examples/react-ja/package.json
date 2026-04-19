@@ -1,0 +1,24 @@
+{
+  "name": "@tegaki/example-react-ja",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Minimal React + Vite demo rendering Japanese text with the tegaki/fonts/ja-kana pre-built bundle.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19",
+    "react-dom": "^19",
+    "tegaki": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5",
+    "typescript": "^6",
+    "vite": "^7"
+  }
+}

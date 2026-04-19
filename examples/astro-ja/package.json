@@ -1,0 +1,19 @@
+{
+  "name": "@tegaki/example-astro-ja",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Minimal Astro demo rendering Japanese text with tegaki/fonts/ja-kana via the tegaki/astro adapter.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^6",
+    "tegaki": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^6"
+  }
+}

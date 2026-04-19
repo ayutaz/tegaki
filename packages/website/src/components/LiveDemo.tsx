@@ -8,6 +8,7 @@ const FONT_IMPORTERS: Record<string, BundleImporter> = {
   italianno: () => import('tegaki/fonts/italianno') as unknown as Promise<{ default: TegakiBundle }>,
   tangerine: () => import('tegaki/fonts/tangerine') as unknown as Promise<{ default: TegakiBundle }>,
   parisienne: () => import('tegaki/fonts/parisienne') as unknown as Promise<{ default: TegakiBundle }>,
+  'ja-kana': () => import('tegaki/fonts/ja-kana') as unknown as Promise<{ default: TegakiBundle }>,
 };
 
 export interface LiveDemoProps {

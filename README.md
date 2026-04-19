@@ -74,6 +74,21 @@ Four handwriting fonts are bundled and ready to use:
 
 For other fonts, use the [interactive generator](https://gkurt.com/tegaki/generator/) to create a custom bundle.
 
+## Japanese (日本語)
+
+Tegaki ships a pre-built bundle for all 180 hiragana and katakana with **correct MEXT stroke order** (via [KanjiVG](https://kanjivg.tagaini.net/)) and **natural non-uniform pen speed** (via the Plamondon Sigma-Lognormal rhythm):
+
+```tsx
+import { TegakiRenderer } from 'tegaki';
+import kana from 'tegaki/fonts/ja-kana';
+
+<TegakiRenderer font={kana} style={{ fontSize: '96px' }}>
+  ありがとう
+</TegakiRenderer>
+```
+
+The bundle is 217 KB (97 KB subsetted Noto Sans JP + 120 KB stroke data). Kanji support is opt-in at generate time via `--dataset kanjivg` — see the [Japanese guide](https://gkurt.com/tegaki/guides/japanese/) for coverage, license (CC-BY-SA 3.0 on the stroke data), and known limitations.
+
 ## Documentation
 
 Visit **[gkurt.com/tegaki](https://gkurt.com/tegaki)** for full documentation:
