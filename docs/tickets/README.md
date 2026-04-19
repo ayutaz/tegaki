@@ -22,7 +22,7 @@
 | 5 | Sigma-Lognormal リズム | [phase-5-rhythm-synthesis.md](./phase-5-rhythm-synthesis.md) | 👀 レビュー中 | Phase 3 |
 | 6 | 検証・チューニング | [phase-6-validation.md](./phase-6-validation.md) | 👀 レビュー中 | Phase 5 |
 | 7 | ドキュメント・サンプル | [phase-7-docs-samples.md](./phase-7-docs-samples.md) | 👀 レビュー中 | Phase 6 |
-| 8 | リリース判断 | [phase-8-release.md](./phase-8-release.md) | 📝 未着手 | Phase 7 |
+| 8 | リリース判断 | [phase-8-release.md](./phase-8-release.md) | 👀 レビュー中 | Phase 7 |
 
 ### ステータス凡例
 
