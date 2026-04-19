@@ -4,14 +4,13 @@ export { KANJIVG_SHA } from './constants.ts';
 export type { KanjiManifestEntry } from './manifest.ts';
 
 // This module is written so it can be imported from a browser bundle (via
-// the in-browser generator preview) without blowing up. The node:fs /
-// node:path accesses are lazy — we try to load them on first call and
-// degrade to null if they aren't available, which happens in:
-//   - Web browsers (no filesystem)
-//   - Bundlers that externalize `node:*` specifiers into runtime stubs
-// In those environments the pre-built bundles (e.g. tegaki/fonts/ja-kana)
-// already carry the stroke data, so the dataset lookup failing is the
-// correct graceful path.
+// the in-browser generator preview) as well as from Node. Two code paths:
+//   - Node / Bun: read SVG files synchronously through node:fs.
+//   - Vite browser bundle: `import.meta.glob(..., { eager: true, ?raw })`
+//     inlines every kanjivg/*.svg file as a string at build time, keyed by
+//     filename. That gives synchronous O(1) lookup without any file I/O.
+// When neither path works (e.g. a non-Vite browser bundler), `getKanjiSvg`
+// returns null and the caller falls back to the heuristic pipeline.
 
 interface NodeBindings {
   readFileSync: typeof import('node:fs').readFileSync;
@@ -73,6 +72,38 @@ function overrideKey(codepoint: number): string {
   return codepoint.toString(16).toUpperCase().padStart(4, '0');
 }
 
+// Vite-specific: `import.meta.glob` with `eager: true` and `?raw` inlines the
+// entire matching file set as strings at build time. This makes every SVG
+// accessible synchronously in the browser without any file I/O. In Node /
+// Bun `import.meta.glob` is undefined, the access throws, and we fall
+// through to the node:fs path via getNode().
+let _browserSvgs: Map<number, string> | null | undefined;
+
+function getBrowserSvgs(): Map<number, string> | null {
+  if (_browserSvgs !== undefined) return _browserSvgs;
+  try {
+    // biome-ignore lint/suspicious/noExplicitAny: Vite-specific API, absent at Node runtime
+    const glob = (import.meta as any).glob as
+      | ((p: string, o: { query: string; import: string; eager: boolean }) => Record<string, string>)
+      | undefined;
+    if (typeof glob !== 'function') {
+      _browserSvgs = null;
+      return null;
+    }
+    const svgs = glob('../kanjivg/*.svg', { query: '?raw', import: 'default', eager: true });
+    const map = new Map<number, string>();
+    for (const [path, content] of Object.entries(svgs)) {
+      const m = path.match(/([0-9a-f]+)\.svg$/i);
+      if (m) map.set(Number.parseInt(m[1]!, 16), content);
+    }
+    _browserSvgs = map;
+    return map;
+  } catch {
+    _browserSvgs = null;
+    return null;
+  }
+}
+
 /**
  * Load the raw KanjiVG SVG string for a single codepoint.
  *
@@ -91,6 +122,12 @@ export function getKanjiSvg(codepoint: number): string | null {
   }
   const entry = MANIFEST.get(codepoint);
   if (!entry) return null;
+  // Prefer the bundler-inlined SVG blob (browser). Falls through to node:fs.
+  const browserSvgs = getBrowserSvgs();
+  if (browserSvgs) {
+    const svg = browserSvgs.get(codepoint);
+    if (svg) return svg;
+  }
   if (!node) return null;
   try {
     return node.readFileSync(node.resolve(node.kanjivgDir, entry.file), 'utf-8');
@@ -103,6 +140,8 @@ export function getKanjiSvg(codepoint: number): string | null {
 export function hasKanji(codepoint: number): boolean {
   const node = getNode();
   if (node?.overrides[overrideKey(codepoint)]) return true;
+  const browserSvgs = getBrowserSvgs();
+  if (browserSvgs) return browserSvgs.has(codepoint) || MANIFEST.has(codepoint);
   return MANIFEST.has(codepoint);
 }
 

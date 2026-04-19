@@ -80,7 +80,13 @@ export const URL_DEFAULTS: UrlState = {
   activeStage: 'final',
   previewMode: 'text',
   previewText: 'ありがとう',
-  options: DEFAULT_OPTIONS,
+  // Japanese-first defaults for the in-browser generator:
+  //   - dataset: 'kanjivg' routes every CJK glyph through the bundled
+  //     KanjiVG stroke data, so hiragana render in MEXT stroke order
+  //     instead of the heuristic skeletonizer's guess.
+  //   - rhythm:  'lognormal' applies the Plamondon velocity profile so
+  //     the animation has a human-like rise/fall per stroke.
+  options: { ...DEFAULT_OPTIONS, dataset: 'kanjivg', rhythm: 'lognormal' },
   animSpeed: 1,
   fontSizePx: 128,
   lineHeightRatio: 1.5,
