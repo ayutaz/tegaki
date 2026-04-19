@@ -45,16 +45,24 @@ export const CJK_UNIFIED_END = 0x9fff;
 
 /**
  * Effective allowlist set, built from the constants above.
- * When JOYO/JINMEI are both empty, falls back to the full CJK Unified range.
+ *
+ * - Kana are always included (179 chars, ~1 MB of SVGs).
+ * - Jōyō and Jinmeiyō kanji are included when their codepoint arrays are
+ *   populated (TODO — they currently default to empty).
+ * - Setting `TEGAKI_KANJIVG_FULL=1` in the environment overrides the empty
+ *   default with the full CJK Unified range for contributors experimenting
+ *   with wider coverage locally.
+ *
+ * The committed package ships kana-only until the Jōyō/Jinmeiyō arrays are
+ * filled in, so the 5 MB budget (NFR-5.2) stays satisfied by default.
  */
 export function buildAllowedCodepoints(): Set<number> {
   const set = new Set<number>();
   for (const cp of HIRAGANA) set.add(cp);
   for (const cp of KATAKANA) set.add(cp);
-  if (JOYO.length > 0 || JINMEI.length > 0) {
-    for (const cp of JOYO) set.add(cp);
-    for (const cp of JINMEI) set.add(cp);
-  } else {
+  for (const cp of JOYO) set.add(cp);
+  for (const cp of JINMEI) set.add(cp);
+  if (JOYO.length === 0 && JINMEI.length === 0 && process.env.TEGAKI_KANJIVG_FULL === '1') {
     for (let cp = CJK_UNIFIED_START; cp <= CJK_UNIFIED_END; cp++) set.add(cp);
   }
   return set;
