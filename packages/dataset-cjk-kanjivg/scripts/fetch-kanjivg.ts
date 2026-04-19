@@ -91,8 +91,12 @@ interface CopyResult {
 
 function copyAllowed(kanjiDir: string): CopyResult {
   const allowed = buildAllowedCodepoints();
-  rmSync(KANJIVG_DIR, { recursive: true, force: true });
+  // Remove stale .svg files only — keep committed files like README_KANJIVG.md
+  // and any auxiliary metadata that lives alongside the dataset.
   mkdirSync(KANJIVG_DIR, { recursive: true });
+  for (const existing of readdirSync(KANJIVG_DIR)) {
+    if (existing.endsWith('.svg')) rmSync(join(KANJIVG_DIR, existing), { force: true });
+  }
 
   const covered = new Map<number, string>();
   let skippedVariant = 0;
