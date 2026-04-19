@@ -125,6 +125,7 @@ export function orderStrokes(
   _connectionThreshold = 3,
   precomputedWidths?: number[][],
   rhythm?: RhythmConfig,
+  preserveDirection = false,
 ): Stroke[] {
   if (polylines.length === 0) return [];
 
@@ -132,7 +133,11 @@ export function orderStrokes(
 
   for (let order = 0; order < polylines.length; order++) {
     const polyline = polylines[order]!;
-    const oriented = orientPolyline(polyline);
+    // When the polylines come from an authoritative dataset (KanjiVG), their
+    // direction already encodes the canonical stroke direction — flipping via
+    // `orientPolyline` would break MEXT-standard order (e.g. a downward-then-
+    // leftward first stroke gets reversed into leftward-then-upward).
+    const oriented = preserveDirection ? polyline : orientPolyline(polyline);
     const totalLen = pathLength(oriented);
 
     // Look up precomputed widths by matching the original polyline reference

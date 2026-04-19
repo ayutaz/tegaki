@@ -270,6 +270,7 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
     3,
     widths,
     options.rhythm === 'lognormal' ? { mode: 'lognormal', endpointTypes } : undefined,
+    datasetOut !== null,
   );
 
   // Stage 6: Convert to font units and compute animation timing.
