@@ -1,0 +1,9 @@
+.cache/
+dist/
+node_modules/
+
+# Upstream KanjiVG SVGs are fetched on demand (see scripts/fetch-kanjivg.ts).
+# They are large and their content is fully determined by KANJIVG_SHA in
+# src/constants.ts, so we exclude them from git but ship them in the npm
+# package (via the `files` field in package.json).
+kanjivg/*.svg

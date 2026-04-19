@@ -1,0 +1,39 @@
+Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+
+The KanjiVG SVG files under `kanjivg/` in this package are Copyright (C)
+2009-2025 Ulrich Apel and KanjiVG contributors, and are licensed under the
+Creative Commons Attribution-ShareAlike 3.0 Unported License.
+
+You are free to:
+
+  - Share — copy and redistribute the material in any medium or format
+  - Adapt — remix, transform, and build upon the material for any purpose,
+            even commercially.
+
+Under the following terms:
+
+  - Attribution — You must give appropriate credit, provide a link to the
+                  license, and indicate if changes were made. You may do so
+                  in any reasonable manner, but not in any way that suggests
+                  the licensor endorses you or your use.
+  - ShareAlike — If you remix, transform, or build upon the material, you
+                 must distribute your contributions under the same license
+                 as the original.
+
+Full legal text:
+  https://creativecommons.org/licenses/by-sa/3.0/legalcode
+
+Human-readable summary:
+  https://creativecommons.org/licenses/by-sa/3.0/
+
+Upstream source:
+  https://github.com/KanjiVG/kanjivg
+  Release pin: see src/constants.ts (KANJIVG_SHA)
+
+-------------------------------------------------------------------------------
+
+This package (`@tegaki/dataset-cjk-kanjivg`) intentionally isolates KanjiVG
+data in a dedicated workspace so that the CC-BY-SA 3.0 share-alike obligation
+does NOT propagate to the main `tegaki` renderer or `tegaki-generator`
+packages, which remain under the MIT License. Installing this package is an
+explicit opt-in to the CC-BY-SA 3.0 terms for the dataset portion only.
