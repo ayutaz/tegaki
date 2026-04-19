@@ -74,9 +74,10 @@ Phase 8: 上流への提案 or 自前リリース      [~2 日]
 **成果物**:
 - `packages/generator/src/dataset/kanjivg.ts`
   - `parseKanjiSvg(svg: string): KanjiStroke[]`
-  - 各 `<path>` を `kvg:StrokeNumber` でソート
-  - `d` 属性を既存の `flattenPath()` でベジェ平坦化
-  - `kvg:type` から終端種別（tome/hane/harai/点）を推定
+  - 筆順は `<path>` の**出現順**で決定（`id="kvg:...-sN"` の N と一致、`kvg:StrokeNumber` 属性は実在しない）
+  - `d` 属性（M/C/S コマンドのみ、S のリフレクション処理必須）を既存の `flattenPath()` でベジェ平坦化
+  - `kvg:type` から終端種別（tome/hane/harai/点）を推定。**仮名は `kvg:type` なしなので `default` フォールバック**
+- 新規 dev 依存: `@xmldom/xmldom` (MIT, ~50 KB) を Bun/Node での SVG パース用に追加
 - `packages/generator/src/dataset/kanjivg.test.ts`
   - 代表字（一、右、田、必、き、ア）でストローク数と順序を検証
 
@@ -155,10 +156,13 @@ const { skeleton, polylines, widths } = useDataset
 **目的**: 等速描画を廃止し、人間の運動学的プロファイル（非対称鐘型速度）を付加する。
 
 **成果物**:
-- `packages/renderer/src/lib/rhythm.ts`
-  - `lognormalRemap(t: number, sigma: number, mu: number): number`
-  - `sigmaFromStroke(length: number, curvature: number, endpointType: string): {sigma, mu}`
-- [timeline.ts](../packages/renderer/src/lib/timeline.ts) 変更: t 計算に lognormal CDF を適用
+- `packages/renderer/src/lib/rhythm.ts` — 数式実装 (Plamondon 1995 クリーンルーム、詳細は [technical-validation.md §2-6](./technical-validation.md))
+  - `lognormalCDF(t, mu, sigma)`, `erf(x)`, `erfinv(y)`
+  - `remapTime(u, sigma, mu)`, `strokeParams(length, curvature, endpointType)`
+  - `sampleLognormalPause(rng, ...)`
+- **ストローク内の `t` 非線形化は [stroke-order.ts:101-105](../packages/generator/src/processing/stroke-order.ts) を修正**
+  （timeline.ts は「テキスト全体の offset 集計」なので無関係。ロードマップ初版の誤記を訂正）
+- [timeline.ts](../packages/renderer/src/lib/timeline.ts): 画間ポーズのみ `sampleLognormalPause()` に置換
 - [constants.ts](../packages/generator/src/constants.ts) に以下を追加:
   - `LOGNORMAL_SIGMA_DEFAULT = 0.3`（Plamondon 論文推奨値）
   - `LOGNORMAL_MU_DEFAULT = 0`
@@ -177,6 +181,7 @@ const { skeleton, polylines, widths } = useDataset
 **リスク**:
 - σ/μ パラメタの初期値が合わず不自然になる
 - → 対策: Phase 6 で日本人ユーザーに目視評価してもらうループを組む
+- **`BUNDLE_VERSION` 互換性**: rhythm データを bundle に埋め込む場合は 0 → 1 に increment 必要。既存 4 フォント bundle の再生成を避けるため、**rhythm は runtime 計算**に寄せる方針を推奨（既存 bundle 無変更で動作）
 
 ---
 
@@ -202,6 +207,11 @@ const { skeleton, polylines, widths } = useDataset
 2. 評価者に共有、5 段階評価でフィードバック回収
 3. 低評価の字を特定 → Phase 3/5 のパラメタを調整 → 再評価
 4. 2 ラウンド以内に収束させる
+
+**補助: 視覚回帰テスト基盤**
+- 現行リポジトリには Playwright 等の VRT フレームが未導入
+- 本フェーズで GitHub Actions に Playwright stage を追加する場合 **+2-3 日**のコスト
+- 最小コストで進める場合は手動目視のみで第一次リリース、Phase 8 以降で VRT 整備
 
 **リスク**:
 - KanjiVG 自体の誤り（稀にストローク順が伝統と違うケースあり）
@@ -288,7 +298,8 @@ main (origin = ayutaz/tegaki)
 | Q3 | 縦書き対応 | **Phase 対象外**（`writingMode: vertical-rl` は将来課題） |
 | Q4 | 他の東アジア言語（簡体字・繁体字・韓国語） | **Phase 対象外**（AnimCJK の `svgsZh/svgsKo` で将来対応可） |
 | Q5 | Sigma-Lognormal のパラメタチューニング UI | `PreviewApp` に slider で露出（デバッグ用、opt-in） |
-| Q6 | リズム合成の offline pre-compute vs runtime 計算 | **offline pre-compute**（bundle に時刻列を埋め込む） |
+| Q6 | リズム合成の offline pre-compute vs runtime 計算 | **runtime 計算**（bundle 無変更で既存 4 フォント互換維持。初版でのデフォルト） |
+| Q7 | 既存の `strokeEasing` (se) URL パラメタを rhythm 用に拡張するか | `se=lognormal` プリセットとして露出、既存 easing preset 機構を再利用 |
 
 ---
 
