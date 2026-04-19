@@ -206,11 +206,15 @@ KanjiVG は線幅情報を持たないため、実際のフォントグリフか
 - [ ] `--rhythm constant` で Phase 3 と同一出力（後方互換）
 - [ ] ベンチマーク: CJK 50 字生成が Phase 3 比 +20% 以内の時間
 
-### AC-3. Phase 6 完了基準
+### AC-3. Phase 6 完了基準（メンテナ自己評価）
 
-- [ ] 日本人評価者 3–5 名による MOS 評価で平均 ≥ 4.0
-- [ ] 評価用 20 字セットで明らかな異常（画抜け・逆方向）0 件
-- [ ] 問題字はすべて issue 化され、[japanese-support.md](./japanese-support.md) の既知の限界節に追記
+外部パネル評価は前提としない。メンテナが [validation-urls.md](./validation-urls.md) の 20 字を自分で見て、以下を満たせば完了とみなす:
+
+- [ ] 評価用 20 字セットで明らかな異常（画抜け・逆方向・筆順誤り）が 0 件
+- [ ] 視認上「機械的すぎる」と感じない（リズムが付与されて見える）
+- [ ] 気になった字は [fix-overrides.json](../packages/dataset-cjk-kanjivg/fix-overrides.json) または σ/μ 調整で対応済み、未対応分は [japanese-support.md](./japanese-support.md) の既知の限界節に追記
+
+数値化したい場合のメトリクス（[rhythm-metrics.ts](../packages/renderer/src/lib/rhythm-metrics.ts) にある `velocitySNR` / `empiricalSkewness` / `ksDistance` / `summariseMOS`）は任意。合否ラインは固定せず、メンテナの納得感で判断する。
 
 ### AC-4. Phase 7 完了基準
 
@@ -269,7 +273,7 @@ KanjiVG は線幅情報を持たないため、実際のフォントグリフか
 |---|---|---|---|
 | R-1 | KanjiVG の既知誤り字（娩・庫・炭）が常用に含まれる | 筆順が誤る | Phase 6 で目視検証、誤りは `fix-overrides.json` で上書き |
 | R-2 | KanjiVG リリース更新で座標が変わる | スナップショットテスト破綻 | git SHA 固定で pin |
-| R-3 | σ/μ のデフォルト値が日本字に合わない | リズム不自然 | Phase 6 のフィードバックループで反復調整 |
+| R-3 | σ/μ のデフォルト値が日本字に合わない | リズム不自然 | メンテナ自己評価で気になれば `constants.ts` を再調整 |
 | R-4 | Zod schema 変更の破壊的影響 | 既存 CLI 利用者に影響 | `dataset` フィールドを `.optional()` に |
 | R-5 | CC-BY-SA 解釈のグレーゾーン | 法的懸念 | パッケージ分離 + ユーザー opt-in で明確化 |
 | R-6 | 視覚回帰テスト基盤が未整備 | 退行検出が困難 | Phase 6 で Playwright 導入（+2-3 日） |
@@ -295,8 +299,8 @@ KanjiVG は線幅情報を持たないため、実際のフォントグリフか
 
 | 指標 | 目標値 | 計測方法 |
 |---|---|---|
-| 常用漢字筆順正確性 | 99%+ | 20 字目視サンプルで 0 件誤り |
-| 日本人評価者 MOS | ≥ 4.0 / 5.0 | 3–5 名の 5 段階評価平均 |
+| 常用漢字筆順正確性 | 99%+ | メンテナが 20 字目視サンプルで 0 件誤り |
+| 自己評価の自然さ | メンテナが「違和感なし」と判断 | [validation-urls.md](./validation-urls.md) を自分で見て確認 |
 | 既存ラテン出力への影響 | 完全後方互換 | snapshot 差分ゼロ |
 | バンドルサイズ増 | 仮名単体 ≤ 300 KB | `npm pack --dry-run` |
 | 生成速度 | CJK 50 字 ≤ 3 秒 | M1 Mac ベンチマーク |
@@ -309,6 +313,7 @@ KanjiVG は線幅情報を持たないため、実際のフォントグリフか
 | バージョン | 日付 | 変更内容 | 作成者 |
 |---|---|---|---|
 | 0.1 | 2026-04-19 | 初版作成（technical-validation.md の結果を反映） | AI assistant |
+| 0.2 | 2026-04-19 | AC-3 と KPI をメンテナ自己評価に修正（外部パネル評価の前提を除去） | AI assistant |
 
 関連ドキュメント:
 - [japanese-support.md](./japanese-support.md) — 設計方針

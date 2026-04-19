@@ -37,15 +37,17 @@ Everything a user needs to render Japanese text is shipped:
 
 ## What is still **not** done
 
-Phase 6 delivered the tooling for evaluation but not the evaluation itself:
+Phase 6 delivered the tooling for evaluation. Evaluation itself is handled by the maintainer as a single-rater self-check — the release does **not** block on panel feedback from external evaluators. The metric functions and the 20-URL test set are there so the maintainer can re-verify quickly after any parameter change.
 
-- **MOS evaluation rounds** — the 20-URL test set in [`validation-urls.md`](./validation-urls.md) has not yet been rated by native Japanese speakers. The acceptance criterion (AC-3: mean ≥ 4.0 / 5.0) is therefore still pending.
-- **KanjiVG errata fix-overrides** — `fix-overrides.json` is empty. Any corrections for reported upstream errors (娩 / 庫 / 炭) should be added as part of the first evaluation round.
+Remaining follow-ups (none blocking):
+
+- **Self-evaluation pass against the 20-URL seed** — [`validation-urls.md`](./validation-urls.md) walks through the checklist. When the maintainer judges the output "good enough", the release can proceed. No threshold or sample-size requirement.
+- **KanjiVG errata fix-overrides** — `fix-overrides.json` is empty. Add entries as the self-evaluation surfaces issues; no round-structure needed.
 - **Jōyō + Jinmeiyō allowlist arrays** — currently empty in `packages/dataset-cjk-kanjivg/scripts/allowlist.ts`, so the default dataset refresh ships kana only. Set `TEGAKI_KANJIVG_FULL=1` locally to pull in the full CJK Unified range while the arrays are being populated.
-- **Playwright visual-regression harness** — documented as a 2–3 day follow-up in the Phase 6 ticket but not installed yet.
+- **Playwright visual-regression harness** — documented as a 2–3 day follow-up in the Phase 6 ticket but not installed yet. Useful for the maintainer's self-check loop; not required.
 - **`ja-full` bundle (kanji)** — no pre-built kanji bundle ships; users have to run the generator themselves.
 
-These are explicit Phase 6+ follow-ups rather than blockers for a first release — they gate the "quality" claim but not the "feature" claim.
+None of these gate shipping — the first release ships on kana completeness and the feature path for kanji, and quality evolves incrementally from there.
 
 ## Release options (pick one)
 
