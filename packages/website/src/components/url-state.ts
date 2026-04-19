@@ -134,13 +134,20 @@ export function parseUrlState(): UrlState {
   if (p.has('t')) state.previewText = p.get('t')!;
 
   // Heuristic: when the preview text contains Japanese and the URL did not
-  // explicitly name a font, auto-switch to Noto Sans JP so a shared
-  // `?t=こんにちは` link actually renders hiragana/katakana/kanji. The
-  // generator already has the font in EXAMPLE_FONTS, and picking it up here
-  // avoids the user landing on Caveat (no CJK coverage) by surprise.
-  if (p.has('t') && !p.has('f')) {
+  // explicitly name a font / character set, auto-switch to Noto Sans JP and
+  // widen `chars` to include every unique codepoint in the preview text. The
+  // generator pipeline only runs against `chars`, so a shared `?t=こんにちは`
+  // link would otherwise render blank glyphs (Caveat default + ASCII-only
+  // chars). Users who set ?f= or ?ch= keep their choice.
+  if (p.has('t')) {
     const cjk = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/;
-    if (cjk.test(state.previewText)) state.fontFamily = 'Noto Sans JP';
+    if (cjk.test(state.previewText)) {
+      if (!p.has('f')) state.fontFamily = 'Noto Sans JP';
+      if (!p.has('ch')) {
+        const extra = [...new Set([...state.previewText].filter((ch) => cjk.test(ch)))].join('');
+        if (extra) state.chars = state.chars + extra;
+      }
+    }
   }
   if (p.has('as')) state.animSpeed = Number(p.get('as'));
   if (p.has('fs')) state.fontSizePx = Number(p.get('fs'));
