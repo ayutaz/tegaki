@@ -68,6 +68,12 @@ const pipelineOptionsSchema = z.object({
     .describe(
       'When combined with --dataset, abort on a CJK character that is not covered instead of falling back to heuristic skeletonization.',
     ),
+  rhythm: z
+    .enum(['constant', 'lognormal'])
+    .default('constant')
+    .describe(
+      "Animation rhythm. 'constant' uses uniform per-stroke speed (back-compat default). 'lognormal' shapes each stroke with a Plamondon Sigma-Lognormal profile and, when dataset=kanjivg, modulates by tome/hane/harai/dot endpoints.",
+    ),
 });
 
 export type PipelineOptions = z.infer<typeof pipelineOptionsSchema>;
@@ -222,11 +228,13 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
   let skeleton: Uint8Array;
   let polylines: import('tegaki').Point[][];
   let widths: number[][] | undefined;
+  let endpointTypes: readonly import('tegaki').EndpointType[] | undefined;
   const datasetOut = options.dataset === 'kanjivg' && isCJK(char) ? datasetSkeleton({ char, pathBBox, raster, inverseDT }) : null;
   if (datasetOut) {
     skeleton = datasetOut.skeleton;
     polylines = datasetOut.polylines;
     widths = datasetOut.widths;
+    endpointTypes = datasetOut.endpointTypes;
   } else {
     if (options.dataset === 'kanjivg' && isCJK(char)) {
       if (options.strict) {
@@ -245,7 +253,17 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
   }
 
   // Stage 5: Order strokes (draw order + direction) and assign per-point time `t`.
-  const strokes = orderStrokes(polylines, inverseDT, raster.width, 3, widths);
+  // `rhythm: 'lognormal'` opts into the Sigma-Lognormal remap — when combined
+  // with a dataset lookup the per-stroke endpoint types (tome/hane/harai/dot)
+  // modulate σ/μ; without a dataset everything uses the 'default' modulation.
+  const strokes = orderStrokes(
+    polylines,
+    inverseDT,
+    raster.width,
+    3,
+    widths,
+    options.rhythm === 'lognormal' ? { mode: 'lognormal', endpointTypes } : undefined,
+  );
 
   // Stage 6: Convert to font units and compute animation timing.
   const strokesFontUnits = toFontUnits(strokes, raster.transform, options.drawingSpeed, options.strokePause);
