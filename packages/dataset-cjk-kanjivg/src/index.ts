@@ -82,15 +82,20 @@ let _browserSvgs: Map<number, string> | null | undefined;
 function getBrowserSvgs(): Map<number, string> | null {
   if (_browserSvgs !== undefined) return _browserSvgs;
   try {
-    // biome-ignore lint/suspicious/noExplicitAny: Vite-specific API, absent at Node runtime
-    const glob = (import.meta as any).glob as
-      | ((p: string, o: { query: string; import: string; eager: boolean }) => Record<string, string>)
-      | undefined;
-    if (typeof glob !== 'function') {
+    // IMPORTANT: Vite's static analyzer only replaces `import.meta.glob(...)`
+    // when it is used as a literal call expression. Assigning it to a variable
+    // first (const glob = import.meta.glob; glob(...)) defeats the transform
+    // and leaves `import.meta.glob` undefined at runtime. Keep this shape.
+    // biome-ignore lint/suspicious/noExplicitAny: Vite-specific runtime API
+    const svgs = (import.meta as any).glob('../kanjivg/*.svg', {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    }) as Record<string, string> | undefined;
+    if (!svgs || Object.keys(svgs).length === 0) {
       _browserSvgs = null;
       return null;
     }
-    const svgs = glob('../kanjivg/*.svg', { query: '?raw', import: 'default', eager: true });
     const map = new Map<number, string>();
     for (const [path, content] of Object.entries(svgs)) {
       const m = path.match(/([0-9a-f]+)\.svg$/i);
