@@ -7,16 +7,18 @@ acceptance criteria that were met.
 
 ## Phase status (as of merge of Phase 7)
 
-| Phase | Ticket | State | Merge commit |
+| Phase | Milestone | State | Merge commit |
 |---|---|---|---|
-| 1 | [dataset package](./tickets/phase-1-dataset-package.md) | ✅ on `main` | `5a560f6` |
-| 2 | [KanjiVG loader](./tickets/phase-2-kanjivg-loader.md) | ✅ on `main` | `3d8d0ed` |
-| 3 | [pipeline integration](./tickets/phase-3-pipeline-integration.md) | ✅ on `main` | `0a356aa` |
-| 4 | [ja-kana bundle](./tickets/phase-4-kana-bundle.md) | ✅ on `main` | `6b3098a` |
-| 5 | [Sigma-Lognormal rhythm](./tickets/phase-5-rhythm-synthesis.md) | ✅ on `main` | `d2a9929` |
-| 6 | [validation + tuning](./tickets/phase-6-validation.md) | ✅ on `main` (metrics + URL seed + fix-overrides) — MOS evaluation rounds **not yet run** | `37a46d2` |
-| 7 | [docs + samples](./tickets/phase-7-docs-samples.md) | ✅ on `main` | `9058e56` |
-| 8 | [release decision](./tickets/phase-8-release.md) | 🚧 in progress (this doc) | — |
+| 1 | dataset package | ✅ on `main` | `5a560f6` |
+| 2 | KanjiVG loader | ✅ on `main` | `3d8d0ed` |
+| 3 | pipeline integration | ✅ on `main` | `0a356aa` |
+| 4 | ja-kana bundle | ✅ on `main` | `6b3098a` |
+| 5 | Sigma-Lognormal rhythm | ✅ on `main` | `d2a9929` |
+| 6 | validation + tuning | ✅ on `main` (metrics + URL seed + fix-overrides) | `37a46d2` |
+| 7 | docs + samples | ✅ on `main` | `9058e56` |
+| 8 | release decision | ✅ artefacts on `main`; shipping decision pending (this doc) | `c0335c4` |
+
+> Per-phase tickets were archived after merge. To inspect the original acceptance criteria or ground-up redesign alternatives, run `git show e39fddb -- docs/tickets/`.
 
 ## What's on `main` right now
 

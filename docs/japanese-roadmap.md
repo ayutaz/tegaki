@@ -52,7 +52,7 @@ Phase 8: 上流への提案 or 自前リリース      [~2 日]   ✅ merged (c0
 
 ### Phase 1: データセットパッケージの雛形 `packages/dataset-cjk-kanjivg`
 
-**Status**: ✅ merged in `5a560f6` — ticket: [phase-1-dataset-package.md](./tickets/phase-1-dataset-package.md)
+**Status**: ✅ merged in `5a560f6`
 
 **目的**: CC-BY-SA 3.0 ライセンスを本体 MIT から隔離する。
 
@@ -76,7 +76,7 @@ Phase 8: 上流への提案 or 自前リリース      [~2 日]   ✅ merged (c0
 
 ### Phase 2: KanjiVG ローダー
 
-**Status**: ✅ merged in `3d8d0ed` — ticket: [phase-2-kanjivg-loader.md](./tickets/phase-2-kanjivg-loader.md)
+**Status**: ✅ merged in `3d8d0ed`
 
 **目的**: SVG → Tegaki 中間形式（ストローク順ポリライン）への変換。
 
@@ -112,7 +112,7 @@ interface KanjiStroke {
 
 ### Phase 3: 既存パイプラインへの統合
 
-**Status**: ✅ merged in `0a356aa` — ticket: [phase-3-pipeline-integration.md](./tickets/phase-3-pipeline-integration.md)
+**Status**: ✅ merged in `0a356aa`
 
 **目的**: CJK 文字のみ新パイプラインに流し、ラテン文字は現状維持。**このフェーズ終了時点で漢字・仮名の筆順が正しくなる**（リズムはまだ等速）。
 
@@ -149,7 +149,7 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 4: 仮名バンドル（並列実行可）
 
-**Status**: ✅ merged in `6b3098a` — ticket: [phase-4-kana-bundle.md](./tickets/phase-4-kana-bundle.md)（実装では 180 chars で出荷）
+**Status**: ✅ merged in `6b3098a`（実装では 180 chars で出荷）
 
 **目的**: 全 92 文字の仮名を pre-generated bundle として `tegaki/fonts/ja-kana` で配布。
 
@@ -166,7 +166,7 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 5: Sigma-Lognormal リズム合成（並列実行可）
 
-**Status**: ✅ merged in `d2a9929` — ticket: [phase-5-rhythm-synthesis.md](./tickets/phase-5-rhythm-synthesis.md)（rhythm は runtime 計算に寄せ、`BUNDLE_VERSION` は据え置き）
+**Status**: ✅ merged in `d2a9929`（rhythm は runtime 計算に寄せ、`BUNDLE_VERSION` は据え置き）
 
 **目的**: 等速描画を廃止し、人間の運動学的プロファイル（非対称鐘型速度）を付加する。
 
@@ -202,7 +202,7 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 6: 検証・チューニング
 
-**Status**: ✅ merged in `37a46d2` — ticket: [phase-6-validation.md](./tickets/phase-6-validation.md)（`rhythm-metrics.ts` + CLI `--strict` で自己評価、外部パネル MOS は前提外に変更）
+**Status**: ✅ merged in `37a46d2`（`rhythm-metrics.ts` + CLI `--strict` で自己評価、外部パネル MOS は前提外に変更）
 
 **目的**: 「日本人が見て自然」の検証。これが通らなければ本プロジェクトの目的未達。
 
@@ -238,7 +238,7 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 7: ドキュメント・サンプル
 
-**Status**: ✅ merged in `9058e56` — ticket: [phase-7-docs-samples.md](./tickets/phase-7-docs-samples.md)
+**Status**: ✅ merged in `9058e56`
 
 **成果物**:
 - [packages/website/src/content/docs/](../packages/website/src/content/docs/) に `guides/japanese.mdx` を追加
@@ -255,7 +255,7 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 8: 上流提案 or 自前リリース
 
-**Status**: ✅ merged in `c0335c4` — ticket: [phase-8-release.md](./tickets/phase-8-release.md)。リリース判断そのものは未決（詳細は [japanese-release-status.md](./japanese-release-status.md) 参照）。
+**Status**: ✅ merged in `c0335c4`。リリース判断そのものは未決（詳細は [japanese-release-status.md](./japanese-release-status.md) 参照）。
 
 **判断ポイント**:
 

@@ -28,7 +28,7 @@ All design/requirements/validation docs live in [`docs/`](https://github.com/ayu
 - `docs/japanese-support.md` — design rationale (why KanjiVG + Sigma-Lognormal, why the dataset is isolated)
 - `docs/requirements.md` — functional + non-functional requirements
 - `docs/technical-validation.md` — numerical checks on the KanjiVG parse, coord mapping, and Plamondon equations
-- `docs/tickets/phase-{1..8}-*.md` — per-phase tickets with acceptance criteria and ground-up redesign alternatives
+- The original per-phase tickets (acceptance criteria + ground-up redesign alternatives) were archived after merge and can be restored from git history at commit `e39fddb` under `docs/tickets/` if you want to review them.
 
 ### Compatibility / impact
 

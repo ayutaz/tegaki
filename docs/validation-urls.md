@@ -57,7 +57,7 @@
 
 Playwright で上記 20 URL をナビゲートし、`ct` で停止した状態をフルフレームキャプチャ。`.visual-baselines/` 配下の画像と diff、1 ピクセル差異以上でフェイル。
 
-導入コスト **2–3 日**（[phase-6-validation.md §8-1](./tickets/phase-6-validation.md)）。GitHub Actions で PR 毎に自動実行するステージを追加する想定。
+導入コスト **2–3 日**程度の follow-up。GitHub Actions で PR 毎に自動実行するステージを追加する想定。
 
 ---
 
