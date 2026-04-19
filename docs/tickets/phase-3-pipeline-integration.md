@@ -11,7 +11,7 @@
 | Phase | **3 / 8 ★最優先リスク** |
 | マイルストーン名 | 既存パイプラインへの統合（`isCJK()` 分岐 + `datasetSkeleton()` + CLI フラグ） |
 | ブランチ名 | `feat/ja-phase3-pipeline-integration` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `0a356aa`) |
 | 依存（前段） | [Phase 1: データセットパッケージ雛形](./phase-1-dataset-package.md) + [Phase 2: KanjiVG ローダー](./phase-2-kanjivg-loader.md)（両方 main にマージ済み必須） |
 | 依存（後段） | [Phase 4: 仮名バンドル](./phase-4-kana-bundle.md) / [Phase 5: Sigma-Lognormal リズム](./phase-5-rhythm-synthesis.md) が本 Phase の `datasetSkeleton()` 出力を消費 |
 | 想定期間 | **5 営業日** (一人稼働、チーム 4 名で並列 3 日) |

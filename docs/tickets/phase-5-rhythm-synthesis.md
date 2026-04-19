@@ -11,7 +11,7 @@
 | Phase | **5 / 8** |
 | マイルストーン名 | Sigma-Lognormal リズム合成（`rhythm.ts` 新設 + stroke-order.ts / timeline.ts への最小差分注入） |
 | ブランチ名 | `feat/ja-phase5-rhythm-lognormal` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `d2a9929`) |
 | 依存（前段） | [Phase 3: パイプライン統合](./phase-3-pipeline-integration.md)（main マージ済み必須、`datasetSkeleton()` / `EndpointType` / `orderStrokes()` の widths マッチングが稼働状態） |
 | 依存（後段） | [Phase 6: 検証・チューニング](./phase-6-validation.md) が本 Phase の σ/μ チューニング対象と MOS 評価 URL セットを消費 |
 | 並列関係 | **Phase 4（仮名バンドル）と並列実行可**（Phase 3 完了後分岐、`stroke-order.ts` 共通層のみ接触点、conflict リスクは §9-C） |

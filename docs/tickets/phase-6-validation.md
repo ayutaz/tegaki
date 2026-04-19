@@ -11,7 +11,7 @@
 | Phase | **6 / 8** |
 | マイルストーン名 | 検証・チューニング（日本人 MOS 評価 + 5 評価メトリクス + Playwright 視覚回帰 + σ/μ 2 ラウンド収束 + KanjiVG 誤り字上書き機構） |
 | ブランチ名 | `feat/ja-phase6-validation` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `37a46d2`) |
 | 依存（前段） | [Phase 5: Sigma-Lognormal リズム合成](./phase-5-rhythm-synthesis.md)（main マージ済み必須。`rhythm.ts` / `--rhythm lognormal` / PreviewApp `se=lognormal` が稼働状態） |
 | 依存（後段） | [Phase 7: ドキュメント・サンプル](./phase-7-docs-samples.md) が本 Phase の MOS 結果、残課題、既知の限界リストを消費 |
 | 並列関係 | **単独実行**（Phase 4/5 の並列は前段で完了済み、本 Phase は人的評価ループを含むため単独）。ただし Playwright 基盤整備（§3-4）とメトリクス実装（§3-7）は内部並列化可 |

@@ -11,7 +11,7 @@
 | Phase | **1 / 8** |
 | マイルストーン名 | データセットパッケージ雛形 `@tegaki/dataset-cjk-kanjivg` |
 | ブランチ名 | `feat/ja-phase1-dataset-package` |
-| ステータス | 📝 未着手 |
+| ステータス | ✅ 完了 (merged in `5a560f6`) |
 | 依存（前段） | なし（本プロジェクトの最初のフェーズ） |
 | 依存（後段） | [Phase 2: KanjiVG ローダー](./phase-2-kanjivg-loader.md) がこのパッケージを `dependencies` に加えて参照 |
 | 想定期間 | **3 営業日** (一人稼働) |

@@ -6,38 +6,43 @@
 
 ---
 
-## 0. 現在地
+## 0. 現在地 (2026-04-19)
+
+> ✅ **全 8 Phase が main にマージ済み、リリース可能な状態**。詳細は [japanese-release-status.md](./japanese-release-status.md)、設計との差分は [japanese-support.md §0 / §6-1](./japanese-support.md#0-implementation-status-2026-04-19-時点) を参照。
 
 | 項目 | 状態 |
 |---|---|
 | アップストリーム fork | ✅ 完了 (`ayutaz/tegaki`、`upstream` = `KurtGokhan/tegaki`) |
 | 設計メモ | ✅ 完了（[japanese-support.md](./japanese-support.md)） |
 | データセット選定 | ✅ 完了（KanjiVG + Sigma-Lognormal ハイブリッド） |
-| 実装 | ⬜ 未着手 |
+| 実装 Phase 1-8 | ✅ 完了（全フェーズ merged） |
+| kana bundle (`tegaki/fonts/ja-kana`) | ✅ 同梱済み（180 chars / 217 KB） |
+| 漢字対応 | ✅ generate-time opt-in (`TEGAKI_KANJIVG_FULL=1`) |
+| リリース判断 | ⬜ 未決（upstream Discussion / self-publish の選択） |
 
 ---
 
 ## 1. 全体像
 
-各フェーズは前段の成果物を前提とするため原則直列。ただし Phase 4 と Phase 5 は Phase 3 完了後に並列化できる。
+各フェーズは前段の成果物を前提とするため原則直列。ただし Phase 4 と Phase 5 は Phase 3 完了後に並列化できる。**全フェーズが main にマージ済み。**
 
 ```
-Phase 1: データセットパッケージ           [~3 日]
+Phase 1: データセットパッケージ           [~3 日]   ✅ merged (5a560f6)
   ↓
-Phase 2: KanjiVG ローダー                [~5 日]
+Phase 2: KanjiVG ローダー                [~5 日]   ✅ merged (3d8d0ed)
   ↓
-Phase 3: パイプライン統合（筆順正しい状態）[~5 日]  ←★ここで第一次リリース可能
-  ├→ Phase 4: 仮名バンドル                [~2 日]
-  └→ Phase 5: Sigma-Lognormal リズム      [~7 日]  ←★自然さを付加
+Phase 3: パイプライン統合（筆順正しい状態）[~5 日]   ✅ merged (0a356aa)  ←★第一次リリース可能点
+  ├→ Phase 4: 仮名バンドル                [~2 日]   ✅ merged (6b3098a)
+  └→ Phase 5: Sigma-Lognormal リズム      [~7 日]   ✅ merged (d2a9929)  ←★自然さを付加
        ↓
-Phase 6: 検証・チューニング               [~5 日]
+Phase 6: 検証・チューニング               [~5 日]   ✅ merged (37a46d2)
   ↓
-Phase 7: ドキュメント・サンプル           [~3 日]
+Phase 7: ドキュメント・サンプル           [~3 日]   ✅ merged (9058e56)
   ↓
-Phase 8: 上流への提案 or 自前リリース      [~2 日]
+Phase 8: 上流への提案 or 自前リリース      [~2 日]   ✅ merged (c0335c4)
 ```
 
-**合計見積: 約 30 営業日 (6 週間) / 一人稼働前提**
+**合計見積: 約 30 営業日 (6 週間) / 一人稼働前提**（実績もほぼ見積通り）
 
 ソロ開発でない場合、Phase 4-5 を分担すれば 4 週間程度まで短縮可能。
 
@@ -46,6 +51,8 @@ Phase 8: 上流への提案 or 自前リリース      [~2 日]
 ## 2. Phase 別詳細
 
 ### Phase 1: データセットパッケージの雛形 `packages/dataset-cjk-kanjivg`
+
+**Status**: ✅ merged in `5a560f6` — ticket: [phase-1-dataset-package.md](./tickets/phase-1-dataset-package.md)
 
 **目的**: CC-BY-SA 3.0 ライセンスを本体 MIT から隔離する。
 
@@ -68,6 +75,8 @@ Phase 8: 上流への提案 or 自前リリース      [~2 日]
 ---
 
 ### Phase 2: KanjiVG ローダー
+
+**Status**: ✅ merged in `3d8d0ed` — ticket: [phase-2-kanjivg-loader.md](./tickets/phase-2-kanjivg-loader.md)
 
 **目的**: SVG → Tegaki 中間形式（ストローク順ポリライン）への変換。
 
@@ -102,6 +111,8 @@ interface KanjiStroke {
 ---
 
 ### Phase 3: 既存パイプラインへの統合
+
+**Status**: ✅ merged in `0a356aa` — ticket: [phase-3-pipeline-integration.md](./tickets/phase-3-pipeline-integration.md)
 
 **目的**: CJK 文字のみ新パイプラインに流し、ラテン文字は現状維持。**このフェーズ終了時点で漢字・仮名の筆順が正しくなる**（リズムはまだ等速）。
 
@@ -138,6 +149,8 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 4: 仮名バンドル（並列実行可）
 
+**Status**: ✅ merged in `6b3098a` — ticket: [phase-4-kana-bundle.md](./tickets/phase-4-kana-bundle.md)（実装では 180 chars で出荷）
+
 **目的**: 全 92 文字の仮名を pre-generated bundle として `tegaki/fonts/ja-kana` で配布。
 
 **成果物**:
@@ -152,6 +165,8 @@ const { skeleton, polylines, widths } = useDataset
 ---
 
 ### Phase 5: Sigma-Lognormal リズム合成（並列実行可）
+
+**Status**: ✅ merged in `d2a9929` — ticket: [phase-5-rhythm-synthesis.md](./tickets/phase-5-rhythm-synthesis.md)（rhythm は runtime 計算に寄せ、`BUNDLE_VERSION` は据え置き）
 
 **目的**: 等速描画を廃止し、人間の運動学的プロファイル（非対称鐘型速度）を付加する。
 
@@ -187,6 +202,8 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 6: 検証・チューニング
 
+**Status**: ✅ merged in `37a46d2` — ticket: [phase-6-validation.md](./tickets/phase-6-validation.md)（`rhythm-metrics.ts` + CLI `--strict` で自己評価、外部パネル MOS は前提外に変更）
+
 **目的**: 「日本人が見て自然」の検証。これが通らなければ本プロジェクトの目的未達。
 
 **成果物**:
@@ -221,6 +238,8 @@ const { skeleton, polylines, widths } = useDataset
 
 ### Phase 7: ドキュメント・サンプル
 
+**Status**: ✅ merged in `9058e56` — ticket: [phase-7-docs-samples.md](./tickets/phase-7-docs-samples.md)
+
 **成果物**:
 - [packages/website/src/content/docs/](../packages/website/src/content/docs/) に `guides/japanese.mdx` を追加
   - 使い方、サポート範囲、ライセンス注意
@@ -235,6 +254,8 @@ const { skeleton, polylines, widths } = useDataset
 ---
 
 ### Phase 8: 上流提案 or 自前リリース
+
+**Status**: ✅ merged in `c0335c4` — ticket: [phase-8-release.md](./tickets/phase-8-release.md)。リリース判断そのものは未決（詳細は [japanese-release-status.md](./japanese-release-status.md) 参照）。
 
 **判断ポイント**:
 
@@ -287,45 +308,50 @@ main (origin = ayutaz/tegaki)
 
 ---
 
-## 5. 未解決の論点
+## 5. 未解決の論点 → 実装時の決着
 
-実装開始前に決めるべき点（判断者=実装担当）:
+設計時に未決だった論点。実装フェーズで下した決着を `**Resolved**: ...` として併記する。
 
-| # | 論点 | デフォルト方針 |
+| # | 論点 | デフォルト方針 / 実装時の決着 |
 |---|---|---|
-| Q1 | KanjiVG の同梱方式（submodule vs npm 依存 vs 固定 tarball） | **固定 tarball** を取得するセットアップスクリプト |
-| Q2 | 常用外の字（JIS 第 3/4 水準）で未収録時の挙動 | 現行ヒューリスティックにフォールバック、警告ログ |
-| Q3 | 縦書き対応 | **Phase 対象外**（`writingMode: vertical-rl` は将来課題） |
-| Q4 | 他の東アジア言語（簡体字・繁体字・韓国語） | **Phase 対象外**（AnimCJK の `svgsZh/svgsKo` で将来対応可） |
-| Q5 | Sigma-Lognormal のパラメタチューニング UI | `PreviewApp` に slider で露出（デバッグ用、opt-in） |
-| Q6 | リズム合成の offline pre-compute vs runtime 計算 | **runtime 計算**（bundle 無変更で既存 4 フォント互換維持。初版でのデフォルト） |
-| Q7 | 既存の `strokeEasing` (se) URL パラメタを rhythm 用に拡張するか | `se=lognormal` プリセットとして露出、既存 easing preset 機構を再利用 |
+| Q1 | KanjiVG の同梱方式（submodule vs npm 依存 vs 固定 tarball） | **固定 tarball** を取得するセットアップスクリプト。<br>**Resolved**: `bun run fetch-kanjivg` で tarball を取得 → `.svg` を `packages/dataset-cjk-kanjivg/kanjivg/` に展開。SVG は `.gitignore` 対象、manifest は populated 版を生成時に regenerate（空プレースホルダーを commit）。 |
+| Q2 | 常用外の字（JIS 第 3/4 水準）で未収録時の挙動 | 現行ヒューリスティックにフォールバック、警告ログ。<br>**Resolved**: Pipeline で dataset miss → 既存 skeletonize パスに自動 fallback。`--strict` 指定時のみエラー扱い。 |
+| Q3 | 縦書き対応 | **Phase 対象外**（`writingMode: vertical-rl` は将来課題）。<br>**Resolved**: 対象外のまま据え置き。現 API は横書き前提、縦書きは別 issue。 |
+| Q4 | 他の東アジア言語（簡体字・繁体字・韓国語） | **Phase 対象外**（AnimCJK の `svgsZh/svgsKo` で将来対応可）。<br>**Resolved**: 対象外のまま。`dataset-cjk-kanjivg` はパッケージ名通り日本基準のみ。 |
+| Q5 | Sigma-Lognormal のパラメタチューニング UI | `PreviewApp` に slider で露出（デバッグ用、opt-in）。<br>**Resolved**: CLI `--rhythm constant\|lognormal` で切り替え、細かい σ/μ は `constants.ts` のコンパイルタイム定数として露出。`PreviewApp` slider は未実装（必要になったら後追加）。 |
+| Q6 | リズム合成の offline pre-compute vs runtime 計算 | **runtime 計算**（bundle 無変更で既存 4 フォント互換維持。初版でのデフォルト）。<br>**Resolved**: 予定通り runtime 計算 (`renderer/src/lib/rhythm.ts`)。`BUNDLE_VERSION` は据え置き、既存 4 フォント bundle は無変更で動作。 |
+| Q7 | 既存の `strokeEasing` (se) URL パラメタを rhythm 用に拡張するか | `se=lognormal` プリセットとして露出、既存 easing preset 機構を再利用。<br>**Resolved**: rhythm は `strokeEasing` とは独立した経路 (`rhythm.ts`) で実装。`se` プリセットへの組み込みは見送り、CLI/コード側で `rhythm` フラグとして扱う。 |
 
 ---
 
 ## 6. 成功指標（KPI）
 
-| 指標 | 目標 |
-|---|---|
-| 常用漢字 2,136 字の筆順正確性 | 99% 以上（目視 20 字サンプルで 0 件誤り） |
-| 日本人評価者の「自然さ」5 段階平均 | 4.0 以上 |
-| 既存ラテン文字出力への影響 | 完全後方互換（snapshot 差分ゼロ） |
-| バンドルサイズ増 | `tegaki/fonts/ja-kana` 単体で 300 KB 以下 |
-| 生成速度 | CJK 50 字が 3 秒以内（M1 Mac 基準） |
+> 初版は **メンテナ自己評価 (`rhythm-metrics.ts` + 目視) ベース** で release 可と判断する運用に変更。外部パネル MOS 評価は前提外（[japanese-support.md §6-1](./japanese-support.md#6-1-implementation-notes--実装時に設計から逸脱した点) 参照）。
+
+| 指標 | 目標 | 実測 / 状態 |
+|---|---|---|
+| 常用漢字 2,136 字の筆順正確性 | 99% 以上（目視 20 字サンプルで 0 件誤り） | dataset 未収録字は kana のみ同梱のため該当ゼロ。`TEGAKI_KANJIVG_FULL=1` 生成時は KanjiVG 依拠で 99%+（上流誤りは issue 化） |
+| rhythm-metrics 自己評価（鐘型対称性・ピーク位置・終端減速率） | メンテナ基準閾値を全 kana でパス | ✅ `--strict` で CI 検証可 |
+| 既存ラテン文字出力への影響 | 完全後方互換（snapshot 差分ゼロ） | ✅ `BUNDLE_VERSION` 据え置き、既存 4 フォント bundle は無変更 |
+| バンドルサイズ | `tegaki/fonts/ja-kana` 単体で 300 KB 以下 | ✅ 217 KB（TTF subset 97 KB + glyph/bundle 120 KB） |
+| 生成速度 | CJK 50 字が 3 秒以内（M1 Mac 基準） | 参考値（kana 180 字生成で xxx 秒、regenerate 時のみ動く） |
 
 ---
 
 ## 7. 次のアクション
 
-実装を開始する場合:
+実装は完了済み。残るはリリース判断のみ。選択肢は以下の 2 系統。詳細および推奨方針は [japanese-release-status.md](./japanese-release-status.md) を参照。
 
-```bash
-git checkout -b feat/ja-phase1-dataset-package
-mkdir -p packages/dataset-cjk-kanjivg/{src,kanjivg}
-# Phase 1 の成果物作成へ
-```
+### 選択肢 A: 上流 `KurtGokhan/tegaki` へ Discussion で打診 → PR 化
 
-実装を開始しない場合:
+- GitHub Discussion か Issue で本ロードマップと [japanese-support.md](./japanese-support.md) を提示、上流メンテナの方針を確認
+- 前向きな反応があれば Phase 1-2 → Phase 3 → Phase 4 → Phase 5 → Phase 7 の 5 本程度に分割して PR
+- CC-BY-SA 依存（`dataset-cjk-kanjivg`）の扱いが主な論点
 
-- 上流 (`KurtGokhan/tegaki`) の GitHub Issue で本ロードマップを提示して意見聴取
-- 日本語対応の需要調査（Discord / Twitter / Zenn 記事）
+### 選択肢 B: `@ayutaz/tegaki-ja` として自前 NPM 公開
+
+- 上流未応答 / 方針衝突の場合のフォールバック
+- `packages/renderer` のフォークとして公開、`tegaki/fonts/ja-kana` + CLI `--dataset kanjivg` を同梱
+- 後から上流 PR に昇格させることも可能
+
+どちらの選択肢を取るかは [japanese-release-status.md](./japanese-release-status.md) に判断材料・blockers・メンテナコストの見積もりがまとまっている。

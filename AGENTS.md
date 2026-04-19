@@ -14,8 +14,9 @@ Monorepo for generating and rendering handwriting animations from any font.
 
 ## Packages
 
-- `packages/renderer` (`tegaki`) — Published npm package. Framework-agnostic animated handwriting renderer with adapters for React, Svelte, Vue, SolidJS, Astro, Web Components, vanilla JS, and Remotion. Ships pre-generated bundles for Caveat, Italianno, Tangerine, and Parisienne under `tegaki/fonts/*`.
+- `packages/renderer` (`tegaki`) — Published npm package. Framework-agnostic animated handwriting renderer with adapters for React, Svelte, Vue, SolidJS, Astro, Web Components, vanilla JS, and Remotion. Ships pre-generated bundles for Caveat, Italianno, Tangerine, Parisienne, and the kana-only Japanese bundle (`tegaki/fonts/ja-kana`) under `tegaki/fonts/*`.
 - `packages/generator` (`tegaki-generator`) — Internal CLI + library that generates glyph data from fonts. Not published; users generate font data via the website UI (which calls the same pipeline in-browser).
+- `packages/dataset-cjk-kanjivg` (`@tegaki/dataset-cjk-kanjivg`) — Workspace-isolated CJK stroke-order data derived from [KanjiVG](https://kanjivg.tagaini.net/) release `r20250816`. Licensed **CC-BY-SA 3.0** (deliberately separated from the MIT-licensed core so installing it is an explicit opt-in to share-alike). Exposes `getKanjiSvg(cp)`, `hasKanji(cp)`, `listCodepoints()`, `getManifestEntry(cp)`, and `KANJIVG_SHA`; consumed by the generator's `--dataset kanjivg` path.
 - `packages/website` (`@tegaki/website`) — Astro + Starlight site containing the docs, framework examples, and the interactive generator/preview app at `/tegaki/generator/`.
 
 ## Commands
@@ -82,10 +83,10 @@ Font download -> Parse (opentype.js) -> Flatten beziers -> Rasterize -> Skeleton
 1. **Extract** (`src/font/parse.ts`): opentype.js extracts path commands and metrics
 2. **Flatten** (`src/processing/bezier.ts`): Adaptive de Casteljau subdivision converts bezier curves to polyline segments
 3. **Rasterize** (`src/processing/rasterize.ts`): Scanline fill with nonzero winding rule produces a binary bitmap
-4. **Skeletonize** (`src/processing/skeletonize.ts`): Reduces the bitmap to a 1px-wide skeleton. Default is Zhang-Suen thinning; the pipeline also supports Guo-Hall, Lee 3D, morphological thin, medial-axis (distance transform ridge), and Voronoi-based medial axis (`voronoi-medial-axis.ts`).
+4. **Skeletonize** (`src/processing/skeletonize.ts`): Reduces the bitmap to a 1px-wide skeleton. Default is Zhang-Suen thinning; the pipeline also supports Guo-Hall, Lee 3D, morphological thin, medial-axis (distance transform ridge), and Voronoi-based medial axis (`voronoi-medial-axis.ts`). When `--dataset kanjivg` is set and the character is CJK (see `src/dataset/pipeline.ts` `isCJK`), this stage is replaced by `datasetSkeleton`, which pulls authoritative stroke polylines from `@tegaki/dataset-cjk-kanjivg` via `src/dataset/kanjivg.ts` (parses KanjiVG `M/C/S` path commands and classifies endpoints) and maps the 109×109 KanjiVG viewBox onto the current bitmap. `--strict` turns missing-codepoint lookups into hard errors instead of silently falling back to the font-driven skeleton.
 5. **Trace** (`src/processing/trace.ts`): Walks skeleton pixels into polylines, prunes short spurs, simplifies with Ramer-Douglas-Peucker
 6. **Width** (`src/processing/width.ts`): Distance transform computes stroke width (diameter) at each skeleton point
-7. **Stroke order** (`src/processing/stroke-order.ts`): Groups polylines into connected components, sorts top-to-bottom/left-to-right, orients strokes, assigns `t` parameter (0-1 animation progress)
+7. **Stroke order** (`src/processing/stroke-order.ts`): Groups polylines into connected components, sorts top-to-bottom/left-to-right, orients strokes, assigns `t` parameter (0-1 animation progress). When `--rhythm lognormal` is passed, the per-point `t` values are remapped through a Plamondon Sigma-Lognormal CDF (see [`packages/renderer/src/lib/rhythm.ts`](packages/renderer/src/lib/rhythm.ts) for `erf`/`erfinv`/`lognormalCDF`/`remapTime`/`strokeParams`/`sampleLognormalPause`). The opt-in is applied at `stroke-order.ts` L101–105 on a per-stroke basis, driven by KanjiVG endpoint classification; `--rhythm constant` (default) leaves the uniform time axis untouched. [`packages/renderer/src/lib/rhythm-metrics.ts`](packages/renderer/src/lib/rhythm-metrics.ts) supplies `velocitySNR`, `peakSpeedRatio`, `empiricalSkewness`, `ksDistance`, and `summariseMOS` for offline validation.
 
 #### File Structure
 
@@ -189,6 +190,7 @@ Caveats:
 - **Coordinate system mismatch**: opentype.js `glyph.getPath()` outputs screen coordinates (y-down) while `glyph.getBoundingBox()` returns font coordinates (y-up). The pipeline computes bounding boxes from actual path points, not from opentype's bbox.
 - **Spur pruning**: The Zhang-Suen skeleton produces noisy spur branches at thick stroke endpoints. These are pruned proportionally to bitmap size (8% of resolution, capped at 10px). If all polylines would be pruned (tiny glyphs like `.`), the longest one is kept.
 - **Font caching**: Downloaded .ttf files are cached in `.cache/fonts/`. The Google Fonts CSS endpoint is fetched with a non-browser User-Agent to get .ttf URLs (not woff2).
+- **Japanese support is opt-in**: `--dataset kanjivg` and `--rhythm lognormal` are both off by default, so bundles produced without these flags are byte-identical to previous releases (no regression for Latin-script users). CJK dispatch only activates when the flag is set *and* the character is in the CJK Unified / kana range; non-CJK characters always go through the font-driven pipeline. The kana-only bundle at `packages/renderer/fonts/ja-kana/` is pre-built via [`scripts/generate-ja-kana.ts`](scripts/generate-ja-kana.ts) (curl-based fetch, bypasses the Padrone CLI) and exported as `tegaki/fonts/ja-kana`.
 
 ### Output Format
 
@@ -224,9 +226,12 @@ The `generate` command writes a bundle directory containing three files:
 
 The verbose in-memory shape (`FontOutput`/`GlyphData` with `boundingBox`, `path`, full `skeleton`, per-point `t`, etc.) is defined in `packages/renderer/src/types.ts` and is produced internally by the pipeline — only the compact projection above is persisted.
 
+The pre-built kana bundle at `packages/renderer/fonts/ja-kana/bundle.ts` (180 chars, ~217 KB) follows the same layout — a co-located `noto-sans-jp-kana.ttf`, `glyphData.json` encoded as above, and a `bundle.ts` exporting a `TegakiBundle` (with `version`, `family`, `unitsPerEm`, `ascender`, `descender`, and a hashed `family` name for CSS isolation). It is generated via `scripts/generate-ja-kana.ts` using the KanjiVG dataset and lognormal rhythm.
+
 ## Conventions
 
 - Biome auto-formats on commit via husky + lint-staged
 - Imports use `.ts` extensions for local imports (`import { foo } from './bar.ts'`), package imports use bare specifiers (`import { foo } from 'tegaki'`)
 - Zod is imported as `import * as z from 'zod/v4'` (not default import)
-- Cross-package imports use the package name: `tegaki` for renderer types/components, `tegaki-generator` for generator exports
+- Cross-package imports use the package name: `tegaki` for renderer types/components, `tegaki-generator` for generator exports; `@tegaki/dataset-cjk-kanjivg` is imported by the generator only (never by `tegaki`, to keep the published renderer MIT-clean)
+- The generator depends on `@xmldom/xmldom` (MIT, ~50 KB) for parsing KanjiVG SVG input; it is a runtime dependency of `tegaki-generator` and is not bundled into the renderer
