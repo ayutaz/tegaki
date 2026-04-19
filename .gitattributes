@@ -1,0 +1,25 @@
+# Normalize line endings to LF across the repository. Without this, Git on
+# Windows with `core.autocrlf=true` flags every text file as "modified" after
+# a checkout because Biome / prettier / editors write LF while the working
+# tree gets rewritten to CRLF. Fix it once here and stop the noise.
+
+* text=auto eol=lf
+
+# Binary assets never get line-ending conversion.
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.pdf      binary
+*.ttf      binary
+*.otf      binary
+*.woff     binary
+*.woff2    binary
+*.eot      binary
+*.mp4      binary
+*.webm     binary
+*.mp3      binary
+*.wav      binary
+*.zip      binary
+*.tar.gz   binary
