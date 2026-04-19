@@ -132,6 +132,16 @@ export function parseUrlState(): UrlState {
   if (p.has('s')) state.activeStage = p.get('s') as Stage;
   if (p.has('m')) state.previewMode = p.get('m') as PreviewMode;
   if (p.has('t')) state.previewText = p.get('t')!;
+
+  // Heuristic: when the preview text contains Japanese and the URL did not
+  // explicitly name a font, auto-switch to Noto Sans JP so a shared
+  // `?t=こんにちは` link actually renders hiragana/katakana/kanji. The
+  // generator already has the font in EXAMPLE_FONTS, and picking it up here
+  // avoids the user landing on Caveat (no CJK coverage) by surprise.
+  if (p.has('t') && !p.has('f')) {
+    const cjk = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/;
+    if (cjk.test(state.previewText)) state.fontFamily = 'Noto Sans JP';
+  }
   if (p.has('as')) state.animSpeed = Number(p.get('as'));
   if (p.has('fs')) state.fontSizePx = Number(p.get('fs'));
   if (p.has('lh')) state.lineHeightRatio = Number(p.get('lh'));
