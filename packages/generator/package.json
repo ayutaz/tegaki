@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tegaki/dataset-cjk-kanjivg": "workspace:*",
     "@xmldom/xmldom": "^0.9.8",
     "d3-delaunay": "^6.0.4",
     "fflate": "^0.8.2",

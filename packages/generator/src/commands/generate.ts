@@ -19,6 +19,7 @@ import {
   TRACE_LOOKBACK,
   VORONOI_SAMPLING_INTERVAL,
 } from '../constants.ts';
+import { datasetSkeleton, isCJK } from '../dataset/pipeline.ts';
 import { extractGlyph, inferLineCap } from '../font/parse.ts';
 import { computePathBBox, flattenPath } from '../processing/bezier.ts';
 import { toFontUnits } from '../processing/font-units.ts';
@@ -55,6 +56,18 @@ const pipelineOptionsSchema = z.object({
   drawingSpeed: z.number().default(DRAWING_SPEED).describe('Drawing speed in font units per second'),
   strokePause: z.number().default(STROKE_PAUSE).describe('Pause duration in seconds between strokes'),
   ligatures: z.boolean().default(false).describe('Enable OpenType ligatures (calt, liga) in the font bundle'),
+  dataset: z
+    .enum(['kanjivg'])
+    .optional()
+    .describe(
+      'Optional CJK stroke-order dataset. When set, characters covered by the dataset use its strokes instead of heuristic skeletonization.',
+    ),
+  strict: z
+    .boolean()
+    .default(false)
+    .describe(
+      'When combined with --dataset, abort on a CJK character that is not covered instead of falling back to heuristic skeletonization.',
+    ),
 });
 
 export type PipelineOptions = z.infer<typeof pipelineOptionsSchema>;
@@ -202,8 +215,34 @@ export function processGlyph(fontInfo: ParsedFontInfo, char: string, options: Pi
   // Stage 3: Compute inverse distance transform — per-pixel stroke radius field.
   const inverseDT = computeInverseDistanceTransform(raster.bitmap, raster.width, raster.height, options.dtMethod);
 
-  // Stage 4: Extract skeleton + centerline polylines (voronoi or thinning+trace).
-  const { skeleton, polylines, widths } = skeletonize({ subPaths, pathBBox, raster, inverseDT, options });
+  // Stage 4: Extract skeleton + centerline polylines.
+  // For CJK chars with a dataset lookup available, we use the pre-authored stroke
+  // order instead of running heuristic thinning. Uncovered chars and all non-CJK
+  // glyphs continue through the existing Voronoi / thinning path.
+  let skeleton: Uint8Array;
+  let polylines: import('tegaki').Point[][];
+  let widths: number[][] | undefined;
+  const datasetOut = options.dataset === 'kanjivg' && isCJK(char) ? datasetSkeleton({ char, pathBBox, raster, inverseDT }) : null;
+  if (datasetOut) {
+    skeleton = datasetOut.skeleton;
+    polylines = datasetOut.polylines;
+    widths = datasetOut.widths;
+  } else {
+    if (options.dataset === 'kanjivg' && isCJK(char)) {
+      if (options.strict) {
+        throw new Error(
+          `--strict: character "${char}" (U+${char.codePointAt(0)?.toString(16).toUpperCase()}) is not in the KanjiVG dataset.`,
+        );
+      }
+      console.warn(
+        `[generate] "${char}" (U+${char.codePointAt(0)?.toString(16).toUpperCase()}) not in KanjiVG dataset; falling back to heuristic skeletonization.`,
+      );
+    }
+    const r = skeletonize({ subPaths, pathBBox, raster, inverseDT, options });
+    skeleton = r.skeleton;
+    polylines = r.polylines;
+    widths = r.widths;
+  }
 
   // Stage 5: Order strokes (draw order + direction) and assign per-point time `t`.
   const strokes = orderStrokes(polylines, inverseDT, raster.width, 3, widths);
