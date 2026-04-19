@@ -73,6 +73,34 @@ export function datasetSkeleton({ char, pathBBox, raster, inverseDT }: DatasetSk
   const widths: number[][] = [];
   const endpointTypes: EndpointType[] = [];
 
+  // KanjiVG skeletons are authored on an idealised grid, so their points can
+  // fall a few pixels outside the Noto Sans JP stroke when rasterised. A raw
+  // `getStrokeWidth` then samples inverseDT at an outside pixel and returns 0,
+  // producing invisible (0-width) strokes. Widen the sample to a small
+  // neighbourhood and keep the maximum — this is still a single pen-radius
+  // readout when the centrelines coincide, and recovers gracefully when they
+  // don't.
+  const SEARCH_RADIUS = Math.max(2, Math.round(Math.min(raster.width, raster.height) * 0.02));
+  const sampleWidth = (x: number, y: number): number => {
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    let best = getStrokeWidth(cx, cy, inverseDT, raster.width);
+    for (let dy = -SEARCH_RADIUS; dy <= SEARCH_RADIUS; dy++) {
+      const ny = cy + dy;
+      if (ny < 0 || ny >= raster.height) continue;
+      for (let dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
+        const nx = cx + dx;
+        if (nx < 0 || nx >= raster.width) continue;
+        const w = getStrokeWidth(nx, ny, inverseDT, raster.width);
+        if (w > best) best = w;
+      }
+    }
+    return best;
+  };
+
+  let perPointSum = 0;
+  let perPointCount = 0;
+
   for (const s of strokes) {
     const pl: Point[] = new Array(s.points.length);
     const pw: number[] = new Array(s.points.length);
@@ -84,14 +112,28 @@ export function datasetSkeleton({ char, pathBBox, raster, inverseDT }: DatasetSk
       const bmX = (fontX - t.offsetX) * t.scaleX;
       const bmY = (fontY - t.offsetY) * t.scaleY;
       pl[i] = { x: bmX, y: bmY };
-      // Width is sampled from the font glyph's own distance transform, so
-      // thickness matches the upstream font's weight rather than KanjiVG's
-      // uniform stroke-width:3 styling.
-      pw[i] = getStrokeWidth(bmX, bmY, inverseDT, raster.width);
+      const w = sampleWidth(bmX, bmY);
+      pw[i] = w;
+      if (w > 0) {
+        perPointSum += w;
+        perPointCount++;
+      }
     }
     polylines.push(pl);
     widths.push(pw);
     endpointTypes.push(s.endpointType);
+  }
+
+  // Final fallback: if most neighbourhood samples still came back zero (very
+  // rare — only when the coordinate transform lands the entire stroke far
+  // outside the rasterised glyph, e.g. tight-bodied italic fonts), fill in the
+  // per-glyph average. A visually non-zero stroke is always better than an
+  // invisible one.
+  const avgWidth = perPointCount > 0 ? perPointSum / perPointCount : (raster.width / 109) * 2;
+  for (const pw of widths) {
+    for (let i = 0; i < pw.length; i++) {
+      if (!(pw[i]! > 0)) pw[i] = avgWidth;
+    }
   }
 
   // Synthesize a 1-pixel skeleton from the polylines so debug visualization
