@@ -1,0 +1,68 @@
+{
+  "name": "@tegaki/dataset-cjk-kanjivg",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "KanjiVG stroke data for CJK characters, packaged for Tegaki. Contains CC-BY-SA 3.0 licensed content.",
+  "keywords": [
+    "kanjivg",
+    "cjk",
+    "kanji",
+    "stroke-order",
+    "japanese",
+    "tegaki",
+    "dataset"
+  ],
+  "homepage": "https://github.com/ayutaz/tegaki/tree/main/packages/dataset-cjk-kanjivg#readme",
+  "bugs": {
+    "url": "https://github.com/ayutaz/tegaki/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ayutaz/tegaki.git",
+    "directory": "packages/dataset-cjk-kanjivg"
+  },
+  "license": "CC-BY-SA-3.0",
+  "author": {
+    "name": "Tegaki contributors"
+  },
+  "contributors": [
+    {
+      "name": "KanjiVG project",
+      "url": "https://kanjivg.tagaini.net/"
+    }
+  ],
+  "exports": {
+    ".": {
+      "tegaki@dev": "./src/index.ts",
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./manifest": {
+      "tegaki@dev": "./src/manifest.ts",
+      "source": "./src/manifest.ts",
+      "types": "./dist/manifest.d.mts",
+      "import": "./dist/manifest.mjs"
+    }
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "kanjivg/*.svg",
+    "LICENSE",
+    "ATTRIBUTION.md",
+    "README.md"
+  ],
+  "scripts": {
+    "fetch-kanjivg": "bun scripts/fetch-kanjivg.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {},
+  "peerDependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.3.12",
+    "typescript": "^6.0.2"
+  }
+}
