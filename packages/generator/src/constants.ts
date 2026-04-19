@@ -1,8 +1,18 @@
 export const DEFAULT_RESOLUTION = 400;
 
-export const DEFAULT_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?\'"-()/\\@#$%&*+=<>~`^_|';
+// Japanese-first fork: ASCII + full hiragana + full katakana by default so
+// `bun start generate` produces a CJK-usable bundle out of the box. Kanji is
+// opt-in via `--chars` with a wider string and `--dataset kanjivg`.
+const HIRAGANA_RANGE = Array.from({ length: 0x3096 - 0x3041 + 1 }, (_, i) => String.fromCodePoint(0x3041 + i)).join('');
+const KATAKANA_RANGE = Array.from({ length: 0x30fa - 0x30a1 + 1 }, (_, i) => String.fromCodePoint(0x30a1 + i)).join('');
+export const DEFAULT_CHARS =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?\'"-()/\\@#$%&*+=<>~`^_|' +
+  HIRAGANA_RANGE +
+  'ゝゞ' +
+  KATAKANA_RANGE +
+  'ヽヾ';
 
-export const DEFAULT_FONT_FAMILY = 'Caveat';
+export const DEFAULT_FONT_FAMILY = 'Noto Sans JP';
 
 export const EXAMPLE_FONTS = [
   'Caveat',

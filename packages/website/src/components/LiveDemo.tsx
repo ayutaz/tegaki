@@ -27,8 +27,8 @@ export interface LiveDemoProps {
 }
 
 export function LiveDemo({
-  text = 'Hello World',
-  fontKey = 'caveat',
+  text = 'ありがとう',
+  fontKey = 'ja-kana',
   fontSize = 48,
   time = { mode: 'uncontrolled', speed: 1, loop: true },
   effects,
@@ -95,7 +95,7 @@ export function LiveDemo({
   );
 }
 
-export function LiveDemoControlled({ fontKey = 'caveat', fontSize = 48 }: { fontKey?: string; fontSize?: number }) {
+export function LiveDemoControlled({ fontKey = 'ja-kana', fontSize = 48 }: { fontKey?: string; fontSize?: number }) {
   const [bundle, setBundle] = useState<TegakiBundle | null>(null);
   const [time, setTime] = useState(0);
 

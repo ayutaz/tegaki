@@ -28,18 +28,23 @@ npm install tegaki
 
 ```tsx
 import { TegakiRenderer } from 'tegaki';
-import caveat from 'tegaki/fonts/caveat';
+import kana from 'tegaki/fonts/ja-kana';
 
 function App() {
   return (
-    <TegakiRenderer font={caveat} style={{ fontSize: '48px' }}>
-      Hello World
+    <TegakiRenderer font={kana} style={{ fontSize: '48px' }}>
+      ありがとう
     </TegakiRenderer>
   );
 }
 ```
 
 That's it. The text draws itself stroke by stroke with natural timing.
+
+> This fork is **Japanese-first**: the defaults across the generator CLI,
+> the interactive preview app, and the live demos assume hiragana / katakana
+> / kanji workloads. Latin cursive fonts (Caveat, Italianno, Tangerine,
+> Parisienne) stay available under their own `tegaki/fonts/<name>` subpaths.
 
 ## Framework Support
 
@@ -65,14 +70,15 @@ import { registerTegakiElement } from 'tegaki/wc'; // Web Components
 
 ## Built-in Fonts
 
-Four handwriting fonts are bundled and ready to use:
+Five handwriting bundles are shipped:
 
+- **Noto Sans JP — ja-kana** — `tegaki/fonts/ja-kana` ★ Japanese-first default, 180 hiragana + katakana with KanjiVG stroke order + Sigma-Lognormal rhythm
 - **Caveat** — `tegaki/fonts/caveat`
 - **Italianno** — `tegaki/fonts/italianno`
 - **Tangerine** — `tegaki/fonts/tangerine`
 - **Parisienne** — `tegaki/fonts/parisienne`
 
-For other fonts, use the [interactive generator](https://gkurt.com/tegaki/generator/) to create a custom bundle.
+For kanji or other fonts, use the [interactive generator](https://gkurt.com/tegaki/generator/) to create a custom bundle (pass `--dataset kanjivg --rhythm lognormal` for authoritative Japanese output).
 
 ## Japanese (日本語)
 

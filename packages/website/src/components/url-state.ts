@@ -74,12 +74,12 @@ export interface UrlState {
 }
 
 export const URL_DEFAULTS: UrlState = {
-  fontFamily: 'Caveat',
+  fontFamily: 'Noto Sans JP',
   chars: DEFAULT_CHARS,
-  selectedChar: 'A',
+  selectedChar: 'あ',
   activeStage: 'final',
   previewMode: 'text',
-  previewText: 'Hello World',
+  previewText: 'ありがとう',
   options: DEFAULT_OPTIONS,
   animSpeed: 1,
   fontSizePx: 128,
