@@ -1,0 +1,40 @@
+---
+import TegakiRenderer from 'tegaki/astro';
+import kana from 'tegaki/fonts/ja-kana';
+
+const PHRASES = ['ありがとう', 'こんにちは', 'さようなら', 'おはよう', 'カタカナ', 'ほんじつはせいてんなり'];
+---
+
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tegaki — Japanese (ja-kana) Astro demo</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; }
+      main { padding: 48px; max-width: 960px; margin: 0 auto; }
+      section.stage { background: #1b1b1b; border-radius: 12px; padding: 48px; margin-bottom: 24px; }
+      h1 { margin-top: 0; }
+      p { opacity: 0.7; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Tegaki — 日本語 (ja-kana) Astro demo</h1>
+      <p>
+        Each stage renders a phrase with the <code>tegaki/astro</code> adapter and the pre-built
+        <code>tegaki/fonts/ja-kana</code> bundle. Stroke order comes from KanjiVG; per-stroke speed uses the
+        Plamondon Sigma-Lognormal rhythm.
+      </p>
+
+      {PHRASES.map((phrase) => (
+        <section class="stage">
+          <TegakiRenderer font={kana} style="font-size: 96px; color: #fafafa; line-height: 1.2">
+            {phrase}
+          </TegakiRenderer>
+        </section>
+      ))}
+    </main>
+  </body>
+</html>

@@ -1,0 +1,112 @@
+---
+title: Japanese (日本語) Support
+description: Use the ja-kana bundle and KanjiVG dataset to animate Japanese handwriting with correct stroke order and natural rhythm.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Tegaki animates Japanese handwriting with **correct MEXT stroke order** (via [KanjiVG](https://kanjivg.tagaini.net/)) and a **human-like non-uniform pen speed** (via the Plamondon Sigma-Lognormal rhythm model). The easiest entry point is the `tegaki/fonts/ja-kana` pre-built bundle, which covers all 180 hiragana and katakana codepoints out of the box.
+
+## Quick start — render kana
+
+<Tabs>
+  <TabItem label="React">
+    ```tsx
+    import { TegakiRenderer } from 'tegaki';
+    import kana from 'tegaki/fonts/ja-kana';
+
+    <TegakiRenderer
+      font={kana}
+      time={{ mode: 'uncontrolled', speed: 1, loop: true }}
+      style={{ fontSize: 96 }}
+    >
+      ありがとう
+    </TegakiRenderer>
+    ```
+  </TabItem>
+  <TabItem label="Svelte">
+    ```svelte
+    <script>
+      import { TegakiRenderer } from 'tegaki/svelte';
+      import kana from 'tegaki/fonts/ja-kana';
+    </script>
+
+    <TegakiRenderer font={kana} style="font-size: 96px">ありがとう</TegakiRenderer>
+    ```
+  </TabItem>
+  <TabItem label="Vue">
+    ```vue
+    <script setup lang="ts">
+    import { TegakiRenderer } from 'tegaki/vue';
+    import kana from 'tegaki/fonts/ja-kana';
+    </script>
+
+    <template>
+      <TegakiRenderer :font="kana" :style="{ fontSize: '96px' }">ありがとう</TegakiRenderer>
+    </template>
+    ```
+  </TabItem>
+  <TabItem label="Astro">
+    ```astro
+    ---
+    import TegakiRenderer from 'tegaki/astro';
+    import kana from 'tegaki/fonts/ja-kana';
+    ---
+
+    <TegakiRenderer font={kana} style="font-size: 96px">ありがとう</TegakiRenderer>
+    ```
+  </TabItem>
+</Tabs>
+
+The bundle is **217 KB** on disk (97 KB subsetted Noto Sans JP + 120 KB stroke data) and includes every hiragana and katakana codepoint — including small kana (ぁぃぅぇぉっゃゅょ…), voiced and semi-voiced marks (がぎぐ… / ぱぴぷ…), iteration marks (ゝゞ ヽヾ), ゐ ゑ, and phonetic-extension katakana (ヷ ヸ ヹ ヺ).
+
+## Coverage
+
+| Range | Count | Covered |
+|---|---|---|
+| Hiragana (U+3041–U+3096 + ゝゞ) | 89 | **100 %** |
+| Katakana (U+30A1–U+30FA + ヽヾ) | 90 | **100 %** |
+| Jōyō kanji (常用漢字) | 2,136 | planned — see below |
+| Jinmeiyō kanji (人名用漢字) | 863 | planned |
+| Kanji outside KanjiVG coverage (JIS L3/L4, CJK Ext.) | — | falls back to the geometric heuristic |
+
+For kanji, Tegaki's pipeline can currently be pointed at the KanjiVG dataset at **generate time** via `--dataset kanjivg` and `--rhythm lognormal`, but no pre-built kanji bundle ships with the package yet. Generate your own bundle with:
+
+```bash
+bun add -D tegaki-generator @tegaki/dataset-cjk-kanjivg
+bun --filter tegaki-generator start generate "Noto Sans JP" \
+  --chars "漢字のリスト" \
+  --dataset kanjivg \
+  --rhythm lognormal \
+  --output ./my-font-bundle
+```
+
+## How stroke order is decided
+
+For any character the pipeline matches `[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]`, the Stage 4 skeletonizer is swapped for a KanjiVG lookup:
+
+1. `getKanjiSvg(codepoint)` returns the raw SVG from the pinned release (currently `r20250816`).
+2. `parseKanjiSvg(svg)` extracts the `<path>` elements in document order — that order **is** the MEXT stroke order. The `kvg:type` attribute (㇐ ㇑ ㇒ ㇀ ㇔ …) maps each stroke to a `tome` / `hane` / `harai` / `dot` / `default` endpoint classification.
+3. The 109-normalized coordinates are mapped into the font's `pathBBox` with aspect-preserving letterboxing, then pushed through `raster.transform` to land in bitmap pixels.
+4. `orderStrokes()` preserves the KanjiVG order as-is (no heuristic override).
+5. When `--rhythm lognormal` is set, each per-point `t` value is remapped through a Plamondon lognormal CDF whose σ/μ are modulated by the stroke's endpoint type — `tome` decelerates sharply, `hane` flicks late, `harai` skews right, `dot` is a short near-symmetric pulse.
+
+Uncovered characters (emoji, Latin letters inside a Japanese string, JIS Level 3/4 kanji) fall through to the existing geometric heuristic. Pass `--strict` to abort instead.
+
+## Known limitations
+
+- **Kanji coverage ≠ full Jōyō yet.** The dataset package ships kana only by default (`TEGAKI_KANJIVG_FULL=1` pulls in the full CJK Unified range during a refresh). A proper Jōyō+Jinmeiyō allowlist + a pre-built `ja-full` bundle are tracked as a Phase 7+ follow-up.
+- **KanjiVG has occasional stroke-order errors.** Reported issues in the common band include [娩 (#155)](https://github.com/KanjiVG/kanjivg/issues/155) and [庫・炭 (#25)](https://github.com/KanjiVG/kanjivg/issues/25). Tegaki provides an escape hatch — drop a corrected SVG keyed by uppercase hex into `packages/dataset-cjk-kanjivg/fix-overrides.json` and it takes precedence over the upstream file.
+- **Vertical writing is out of scope.** The first release assumes horizontal left-to-right layout; `writing-mode: vertical-rl` is a future enhancement.
+- **The Sigma-Lognormal defaults are calibrated on healthy adults.** Children, elderly writers, and dysgraphia-style variants are modeled as parameter shifts (larger σ) but not shipped as presets. Tune `LOGNORMAL_SIGMA_DEFAULT` / `LOGNORMAL_MU_DEFAULT` in `packages/generator/src/constants.ts` to explore.
+
+## License — the one thing to watch
+
+`tegaki`, `tegaki-generator`, and `@tegaki/website` are **MIT**. The KanjiVG data shipped inside `tegaki/fonts/ja-kana`'s `glyphData.json` — and redistributed by the `@tegaki/dataset-cjk-kanjivg` package when you opt in at generate time — is **CC-BY-SA 3.0**. By using `tegaki/fonts/ja-kana` (or any bundle generated with `--dataset kanjivg`) you accept the CC-BY-SA share-alike obligation **for the stroke-data portion**, not for your whole codebase. See:
+
+- [FONTS-LICENSE.md](https://github.com/ayutaz/tegaki/blob/main/packages/renderer/FONTS-LICENSE.md) — the bundled fonts' SIL OFL + Noto Sans JP note
+- [packages/dataset-cjk-kanjivg/ATTRIBUTION.md](https://github.com/ayutaz/tegaki/blob/main/packages/dataset-cjk-kanjivg/ATTRIBUTION.md) — the full KanjiVG attribution and CC-BY-SA text
+
+## Preview in the browser
+
+The [interactive generator](/tegaki/generator/) accepts a `dataset=kanjivg&rhythm=lognormal` pair of URL parameters; pair it with `t=...` and a Japanese font family to drive the preview reproducibly. See [validation URL seed](https://github.com/ayutaz/tegaki/blob/main/docs/validation-urls.md) for a curated 20-character test set covering stroke order, rhythm, and kana-specific edge cases.
