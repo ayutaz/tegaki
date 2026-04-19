@@ -1,0 +1,4 @@
+{
+  "$comment": "Per-codepoint SVG overrides applied on top of the upstream KanjiVG tarball. Keys are uppercase hex codepoints (e.g., '5A69' for 娩). Values are the full SVG document to use in place of the upstream file. Intended for the small set of characters where upstream KanjiVG has documented errors — see docs/validation-urls.md §6 for the tracking list. Keep this file empty by default; Phase 6 evaluation rounds are where entries get added.",
+  "overrides": {}
+}
