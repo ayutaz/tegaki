@@ -144,10 +144,11 @@ export function PreviewApp() {
     resultsCache.current.clear();
     try {
       const { primary, extra } = await fetchFontFromCDN(family);
-      const info = parseFont(primary, extra.length > 0 ? extra : undefined);
+      const extraBuffers = extra.map((s) => s.buffer);
+      const info = parseFont(primary, extraBuffers.length > 0 ? extraBuffers : undefined);
       setFontInfo(info);
       setFontBuffer(primary);
-      setExtraFontBuffers(extra.length > 0 ? extra : undefined);
+      setExtraFontBuffers(extraBuffers.length > 0 ? extraBuffers : undefined);
       setFontFamily(family);
     } catch (e) {
       setFontError((e as Error).message);

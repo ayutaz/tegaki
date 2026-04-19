@@ -12,9 +12,18 @@ export const DEFAULT_CHARS =
   KATAKANA_RANGE +
   'ヽヾ';
 
-export const DEFAULT_FONT_FAMILY = 'Noto Sans JP';
+// Klee One is Google's textbook-handwriting font — uniform stroke weights,
+// designed to imitate a teacher's careful hand. Much more legible as the
+// Tegaki starting point than the display-oriented Noto Sans JP, whose
+// calligraphic stroke-width variation gets amplified by our pipeline.
+export const DEFAULT_FONT_FAMILY = 'Klee One';
 
 export const EXAMPLE_FONTS = [
+  'Klee One',
+  'Zen Kurenaido',
+  'Yomogi',
+  'Kaisei Decol',
+  'Noto Sans JP',
   'Caveat',
   'Dancing Script',
   'Great Vibes',
@@ -30,7 +39,6 @@ export const EXAMPLE_FONTS = [
   'Satisfy',
   'Shadows Into Light',
   'Tangerine',
-  'Noto Sans JP',
   'Noto Sans KR',
   'Noto Sans SC',
   'Rubik',

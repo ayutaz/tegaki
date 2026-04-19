@@ -25,7 +25,11 @@ export type EffectsState = {
 export const DEFAULT_EFFECTS_STATE: EffectsState = {
   glow: { enabled: false, radius: 8, color: '#00ccff', offsetX: 0, offsetY: 0 },
   wobble: { enabled: false, amplitude: 1.5, frequency: 8, mode: 'sine' },
-  pressureWidth: { enabled: true, strength: 1 },
+  // pressureWidth amplifies per-point width variation into a brush-like
+  // "calligraphy" taper. Good-looking for Latin handwriting scripts (Caveat
+  // etc.) but it makes CJK glyphs look like sloppy brush work instead of
+  // ordinary hand-printing. Keep the effect available but disabled by default.
+  pressureWidth: { enabled: false, strength: 1 },
   taper: { enabled: false, startLength: 0.15, endLength: 0.15 },
   gradient: { enabled: false, colors: 'rainbow', saturation: 80, lightness: 55 },
 };
@@ -74,7 +78,7 @@ export interface UrlState {
 }
 
 export const URL_DEFAULTS: UrlState = {
-  fontFamily: 'Noto Sans JP',
+  fontFamily: 'Klee One',
   chars: DEFAULT_CHARS,
   selectedChar: 'あ',
   activeStage: 'final',
@@ -144,7 +148,7 @@ export function parseUrlState(): UrlState {
   if (p.has('t')) state.previewText = p.get('t')!;
 
   // Heuristic: when the preview text contains Japanese and the URL did not
-  // explicitly name a font / character set, auto-switch to Noto Sans JP and
+  // explicitly name a font / character set, auto-switch to Klee One and
   // widen `chars` to include every unique codepoint in the preview text. The
   // generator pipeline only runs against `chars`, so a shared `?t=こんにちは`
   // link would otherwise render blank glyphs (Caveat default + ASCII-only
@@ -152,7 +156,7 @@ export function parseUrlState(): UrlState {
   if (p.has('t')) {
     const cjk = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/;
     if (cjk.test(state.previewText)) {
-      if (!p.has('f')) state.fontFamily = 'Noto Sans JP';
+      if (!p.has('f')) state.fontFamily = 'Klee One';
       if (!p.has('ch')) {
         const extra = [...new Set([...state.previewText].filter((ch) => cjk.test(ch)))].join('');
         if (extra) state.chars = state.chars + extra;
