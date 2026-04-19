@@ -169,6 +169,29 @@ function readAttr(el: unknown, name: string): string | null {
 }
 
 /**
+ * Upstream KanjiVG declares the `kvg:` prefix inside the DOCTYPE ATTLIST,
+ * not inline on `<svg>`. Strict namespace-aware parsers (including
+ * @xmldom/xmldom) reject any `kvg:*` attribute in that state with
+ * "NamespaceError: prefix is non-null and namespace is null". Preprocess the
+ * markup so the namespace is bound inline and the DTD internal subset is
+ * removed, giving us a clean single-pass parse without losing data.
+ */
+function normalizeKanjiSvg(raw: string): string {
+  let s = raw;
+  // Drop the DOCTYPE + internal ATTLIST subset entirely. We don't rely on
+  // default attributes it declares; all attributes we read are present on
+  // the elements themselves.
+  s = s.replace(/<!DOCTYPE[^>]*\[[\s\S]*?\]>/u, '');
+  s = s.replace(/<!DOCTYPE[^>]*>/u, '');
+  // Ensure the kvg namespace is declared inline on the root <svg>.
+  s = s.replace(/<svg\b([^>]*?)>/u, (match, attrs: string) => {
+    if (/xmlns:kvg\s*=/u.test(attrs)) return match;
+    return `<svg${attrs} xmlns:kvg="http://kanjivg.tagaini.net">`;
+  });
+  return s;
+}
+
+/**
  * Collect the raw `<path>` entries from the `kvg:StrokePaths_*` group, in
  * document order. The `id` attribute on each path ends in `-sN`; that N is
  * the 1-origin stroke number.
@@ -176,11 +199,10 @@ function readAttr(el: unknown, name: string): string | null {
 function collectStrokePaths(svg: string): RawPathEntry[] {
   const parser = new DOMParser({
     onError: (_level, _msg) => {
-      // Swallow xmldom's DOCTYPE-related warnings — KanjiVG files include
-      // an internal ATTLIST subset that xmldom logs about but handles fine.
+      // Swallow xmldom warnings (the normalized input rarely triggers them).
     },
   });
-  const doc = parser.parseFromString(svg, 'image/svg+xml');
+  const doc = parser.parseFromString(normalizeKanjiSvg(svg), 'image/svg+xml');
 
   const allPaths = Array.from(doc.getElementsByTagName('path'));
   const entries: RawPathEntry[] = [];

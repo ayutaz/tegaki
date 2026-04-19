@@ -18,7 +18,7 @@
 | 1 | データセットパッケージ雛形 | [phase-1-dataset-package.md](./phase-1-dataset-package.md) | 👀 レビュー中 | — |
 | 2 | KanjiVG ローダー | [phase-2-kanjivg-loader.md](./phase-2-kanjivg-loader.md) | 👀 レビュー中 | Phase 1 |
 | 3 | パイプライン統合 | [phase-3-pipeline-integration.md](./phase-3-pipeline-integration.md) | 👀 レビュー中 | Phase 2 |
-| 4 | 仮名バンドル | [phase-4-kana-bundle.md](./phase-4-kana-bundle.md) | 📝 未着手 | Phase 3 |
+| 4 | 仮名バンドル | [phase-4-kana-bundle.md](./phase-4-kana-bundle.md) | 👀 レビュー中 | Phase 3 |
 | 5 | Sigma-Lognormal リズム | [phase-5-rhythm-synthesis.md](./phase-5-rhythm-synthesis.md) | 👀 レビュー中 | Phase 3 |
 | 6 | 検証・チューニング | [phase-6-validation.md](./phase-6-validation.md) | 📝 未着手 | Phase 5 |
 | 7 | ドキュメント・サンプル | [phase-7-docs-samples.md](./phase-7-docs-samples.md) | 📝 未着手 | Phase 6 |

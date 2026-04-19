@@ -27,6 +27,23 @@ All fonts are licensed under the [SIL Open Font License, Version 1.1](https://op
 - **Copyright**: Copyright (c) 2012 by Brian J. Bonislawsky DBA Astigmatic (AOETI)
 - **License**: SIL Open Font License, Version 1.1
 
+## Noto Sans JP (ja-kana bundle)
+
+- **Designer**: Google LLC
+- **Copyright**: Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+- **License**: SIL Open Font License, Version 1.1
+- **Note**: The `tegaki/fonts/ja-kana` bundle ships only the 180-glyph hiragana + katakana subset (~97 KB) generated via Google Fonts' `&text=` subset endpoint.
+
+### Stroke data — KanjiVG (separate license)
+
+The *stroke-order* data in `tegaki/fonts/ja-kana`'s `glyphData.json` is derived
+from **[KanjiVG](https://kanjivg.tagaini.net/)** (Copyright © 2009–2025 Ulrich
+Apel and KanjiVG contributors), licensed under **Creative Commons
+Attribution-ShareAlike 3.0 Unported (CC-BY-SA 3.0)** — not the SIL OFL that
+covers the font file. Use of this bundle therefore implies acceptance of the
+CC-BY-SA 3.0 share-alike obligation for the stroke data portion. See
+`packages/dataset-cjk-kanjivg/ATTRIBUTION.md` for the full notice.
+
 ---
 
 ## SIL Open Font License, Version 1.1

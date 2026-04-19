@@ -105,6 +105,13 @@
       "types": "./dist/fonts/parisienne/bundle.d.mts",
       "node": "./fonts/parisienne/bundle.ts",
       "default": "./dist/fonts/parisienne/bundle.mjs"
+    },
+    "./fonts/ja-kana": {
+      "tegaki@dev": "./fonts/ja-kana/bundle.ts",
+      "source": "./fonts/ja-kana/bundle.ts",
+      "types": "./dist/fonts/ja-kana/bundle.d.mts",
+      "node": "./fonts/ja-kana/bundle.ts",
+      "default": "./dist/fonts/ja-kana/bundle.mjs"
     }
   },
   "files": [
@@ -120,7 +127,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsdown",
     "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts",
-    "generate-fonts": "bun --filter tegaki-generator start generate Caveat --output ../renderer/fonts/caveat && bun --filter tegaki-generator start generate Italianno --output ../renderer/fonts/italianno && bun --filter tegaki-generator start generate Tangerine --output ../renderer/fonts/tangerine && bun --filter tegaki-generator start generate Parisienne --output ../renderer/fonts/parisienne"
+    "generate-fonts": "bun --filter tegaki-generator start generate Caveat --output ../renderer/fonts/caveat && bun --filter tegaki-generator start generate Italianno --output ../renderer/fonts/italianno && bun --filter tegaki-generator start generate Tangerine --output ../renderer/fonts/tangerine && bun --filter tegaki-generator start generate Parisienne --output ../renderer/fonts/parisienne",
+    "generate-ja-kana": "bun --conditions=tegaki@dev ../../scripts/generate-ja-kana.ts"
   },
   "dependencies": {},
   "peerDependencies": {
