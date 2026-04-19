@@ -16,13 +16,13 @@
     "skeletonization",
     "zhang-suen"
   ],
-  "homepage": "https://github.com/KurtGokhan/tegaki#readme",
+  "homepage": "https://github.com/ayutaz/tegaki#readme",
   "bugs": {
-    "url": "https://github.com/KurtGokhan/tegaki/issues"
+    "url": "https://github.com/ayutaz/tegaki/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/KurtGokhan/tegaki.git",
+    "url": "git+ssh://git@github.com/ayutaz/tegaki.git",
     "directory": "packages/generator"
   },
   "license": "MIT",

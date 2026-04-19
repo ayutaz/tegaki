@@ -11,4 +11,4 @@ Add Japanese language support.
 - **New workspace package** `@tegaki/dataset-cjk-kanjivg` (CC-BY-SA 3.0) ships the KanjiVG stroke data isolated from the MIT core. `getKanjiSvg`, `hasKanji`, `listCodepoints` form the lookup API. A `fix-overrides.json` escape hatch lets contributors correct upstream KanjiVG errors without patching the pinned tarball.
 - **Back-compat**: the defaults are unchanged (`rhythm=constant`, no dataset). Existing Caveat / Italianno / Tangerine / Parisienne bundles are bit-for-bit identical to the previous release.
 
-Docs: [Japanese guide](https://gkurt.com/tegaki/guides/japanese/). Examples: `examples/react-ja`, `examples/astro-ja`.
+Docs: [Japanese guide](https://ayutaz.github.io/tegaki/guides/japanese/). Examples: `examples/react-ja`, `examples/astro-ja`.

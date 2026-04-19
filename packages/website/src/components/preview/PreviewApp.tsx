@@ -389,7 +389,7 @@ export function PreviewApp() {
             <h1 className="text-lg font-semibold">Tegaki generator</h1>
           </div>
           <a
-            href="https://github.com/KurtGokhan/tegaki"
+            href="https://github.com/ayutaz/tegaki"
             target="_blank"
             rel="noopener noreferrer"
             className="text-gray-400 hover:text-gray-700 transition-colors"
