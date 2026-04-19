@@ -39,6 +39,21 @@ jobs:
 
       - run: bun install
 
+      - name: Cache KanjiVG tarball
+        uses: actions/cache@v4
+        with:
+          path: packages/dataset-cjk-kanjivg/.cache
+          key: kanjivg-${{ hashFiles('packages/dataset-cjk-kanjivg/src/constants.ts') }}
+
+      - name: Fetch KanjiVG SVGs
+        # Populates packages/dataset-cjk-kanjivg/kanjivg/*.svg and regenerates
+        # src/manifest.ts so Vite's import.meta.glob has stroke data to bundle.
+        # The SVGs are gitignored — without this step the website ships without
+        # any kanji coverage and every CJK lookup silently falls back to the
+        # heuristic skeletonizer.
+        run: bun scripts/fetch-kanjivg.ts
+        working-directory: ./packages/dataset-cjk-kanjivg
+
       - name: Build renderer
         run: bun run build
         working-directory: ./packages/renderer
@@ -49,6 +64,9 @@ jobs:
         env:
           # Pass the base path from Pages configuration
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # Node's default heap is 4 GB; 3,089 SVG dynamic-import chunks
+          # plus the rest of the site push memory close to that ceiling.
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

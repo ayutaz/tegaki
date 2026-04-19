@@ -8,7 +8,7 @@ import { defineConfig } from 'astro/config';
 import starlightThemeNova from 'starlight-theme-nova';
 
 export default defineConfig({
-  site: 'https://gkurt.com',
+  site: 'https://ayutaz.github.io',
   base: '/tegaki',
   integrations: [
     starlight({
