@@ -1,3 +1,9 @@
+// Node-only imports. Safe to import at module scope because we never *call*
+// them in a browser runtime — the isNodeRuntime() gate in getNode() short
+// circuits before any method on the Vite-externalised stubs is touched.
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { MANIFEST } from './manifest.ts';
 
 export { KANJIVG_SHA } from './constants.ts';
@@ -13,9 +19,6 @@ export type { KanjiManifestEntry } from './manifest.ts';
 // returns null and the caller falls back to the heuristic pipeline.
 
 interface NodeBindings {
-  readFileSync: typeof import('node:fs').readFileSync;
-  existsSync: typeof import('node:fs').existsSync;
-  resolve: typeof import('node:path').resolve;
   kanjivgDir: string;
   overrides: Record<string, string>;
 }
@@ -33,26 +36,12 @@ function getNode(): NodeBindings | null {
     return null;
   }
   try {
-    // Dodge Vite's static analyzer: the `new Function(...)` returns `require`
-    // at runtime (exists in Bun + Node CommonJS) and `null` otherwise (ESM
-    // Node / browsers). The specifiers are reassembled at runtime so Vite
-    // never sees a literal `"node:path"` import to externalize.
-    const lookupRequire = new Function('return typeof require === "function" ? require : null');
-    const req = lookupRequire() as ((m: string) => unknown) | null;
-    if (!req) {
-      _node = null;
-      return null;
-    }
-    const fsSpec = ['node', 'fs'].join(':');
-    const pathSpec = ['node', 'path'].join(':');
-    const fs = req(fsSpec) as typeof import('node:fs');
-    const path = req(pathSpec) as typeof import('node:path');
-    const kanjivgDir = path.resolve(import.meta.dir, '..', 'kanjivg');
-    const overridesPath = path.resolve(import.meta.dir, '..', 'fix-overrides.json');
+    const kanjivgDir = resolve(import.meta.dir, '..', 'kanjivg');
+    const overridesPath = resolve(import.meta.dir, '..', 'fix-overrides.json');
     let overrides: Record<string, string> = {};
     try {
-      if (fs.existsSync(overridesPath)) {
-        const parsed = JSON.parse(fs.readFileSync(overridesPath, 'utf-8')) as {
+      if (existsSync(overridesPath)) {
+        const parsed = JSON.parse(readFileSync(overridesPath, 'utf-8')) as {
           overrides?: Record<string, string>;
         };
         overrides = parsed.overrides ?? {};
@@ -60,7 +49,7 @@ function getNode(): NodeBindings | null {
     } catch {
       // Malformed fix-overrides.json — ignore, ship manifest as-is.
     }
-    _node = { readFileSync: fs.readFileSync, existsSync: fs.existsSync, resolve: path.resolve, kanjivgDir, overrides };
+    _node = { kanjivgDir, overrides };
     return _node;
   } catch {
     _node = null;
@@ -137,7 +126,7 @@ export function getKanjiSvg(codepoint: number): string | null {
   const entry = MANIFEST.get(codepoint);
   if (!entry || !node) return null;
   try {
-    return node.readFileSync(node.resolve(node.kanjivgDir, entry.file), 'utf-8');
+    return readFileSync(resolve(node.kanjivgDir, entry.file), 'utf-8');
   } catch {
     return null;
   }
