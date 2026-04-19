@@ -11,22 +11,39 @@ export interface FontSubsetBuffer {
   buffer: ArrayBuffer;
 }
 
+/**
+ * Per-family weight override for fonts whose 400 (Regular) is too thin for
+ * legible Tegaki output. Looked up after the Fontsource metadata is fetched
+ * and intersected with the font's available weights.
+ */
+const WEIGHT_PREFERENCES: Record<string, number> = {
+  'Klee One': 600,
+  'Zen Maru Gothic': 700,
+  'Zen Kaku Gothic New': 700,
+  'Noto Sans JP': 700,
+};
+
 export async function fetchFontFromCDN(family: string): Promise<{ primary: ArrayBuffer; extra: FontSubsetBuffer[] }> {
   const slug = family.toLowerCase().replace(/\s+/g, '-');
   const baseUrl = `https://cdn.jsdelivr.net/fontsource/fonts/${slug}@latest`;
 
   let subsets: string[] = ['latin'];
+  let weights: number[] = [400];
   try {
     const metaResp = await fetch(`https://api.fontsource.org/v1/fonts/${slug}`);
     if (metaResp.ok) {
-      const meta: { subsets?: string[] } = await metaResp.json();
+      const meta: { subsets?: string[]; weights?: number[] } = await metaResp.json();
       if (meta.subsets?.length) subsets = meta.subsets;
+      if (meta.weights?.length) weights = meta.weights;
     }
   } catch {
-    // Fall back to just latin if metadata fetch fails
+    // Fall back to latin-only + default weight if metadata fetch fails.
   }
 
-  const latinResp = await fetch(`${baseUrl}/latin-400-normal.ttf`);
+  const preferredWeight = WEIGHT_PREFERENCES[family];
+  const weight = preferredWeight && weights.includes(preferredWeight) ? preferredWeight : weights.includes(400) ? 400 : weights[0]!;
+
+  const latinResp = await fetch(`${baseUrl}/latin-${weight}-normal.ttf`);
   if (!latinResp.ok) {
     throw new Error(`Font "${family}" not found on CDN (${latinResp.status}). Try uploading a .ttf file instead.`);
   }
@@ -35,7 +52,7 @@ export async function fetchFontFromCDN(family: string): Promise<{ primary: Array
   const extraSubsets = subsets.filter((s) => s !== 'latin');
   const extraResults = await Promise.allSettled(
     extraSubsets.map(async (subset): Promise<FontSubsetBuffer | null> => {
-      const resp = await fetch(`${baseUrl}/${subset}-400-normal.ttf`);
+      const resp = await fetch(`${baseUrl}/${subset}-${weight}-normal.ttf`);
       if (!resp.ok) return null;
       return { subset, buffer: await resp.arrayBuffer() };
     }),
